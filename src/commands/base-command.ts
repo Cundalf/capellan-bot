@@ -1,5 +1,5 @@
 
-import { Message } from 'discord.js';
+import { Message, CommandInteraction } from 'discord.js';
 import { Logger } from '@/utils/logger';
 import { CommandContext } from '@/types';
 
@@ -15,7 +15,7 @@ export abstract class BaseCommand {
   abstract aliases: string[];
   abstract requiresInquisitor: boolean;
 
-  abstract execute(message: Message, args: string[], context: CommandContext): Promise<void>;
+  abstract execute(message: Message | CommandInteraction, args: string[], context: CommandContext): Promise<void>;
 
   protected createContext(message: Message, isInquisitor: boolean): CommandContext {
     return {
@@ -27,12 +27,42 @@ export abstract class BaseCommand {
     };
   }
 
+  protected createContextFromInteraction(interaction: CommandInteraction, isInquisitor: boolean): CommandContext {
+    return {
+      isInquisitor,
+      userId: interaction.user.id,
+      username: interaction.user.username,
+      channelId: interaction.channelId,
+      guildId: interaction.guildId
+    };
+  }
+
   protected extractUserIdFromMention(mention: string): string {
     return mention.replace(/[<@!>]/g, '');
   }
 
-  protected async sendLoadingMessage(message: Message, text: string = '🔍 *Procesando...*') {
-    return await message.reply(text);
+  protected async sendLoadingMessage(message: Message | CommandInteraction, text: string = '🔍 *Procesando...*') {
+    if ('reply' in message) {
+      return await message.reply(text);
+    } else {
+      if (message.deferred) {
+        return await message.followUp(text);
+      } else {
+        return await message.reply(text);
+      }
+    }
+  }
+
+  protected async sendResponse(message: Message | CommandInteraction, content: string | { embeds?: any[] }) {
+    if ('reply' in message) {
+      return await message.reply(content);
+    } else {
+      if (message.deferred) {
+        return await message.followUp(content);
+      } else {
+        return await message.reply(content);
+      }
+    }
   }
 
   protected logCommand(context: CommandContext, command: string, args: string[]) {

@@ -1,5 +1,5 @@
 
-import { Message, EmbedBuilder } from 'discord.js';
+import { Message, EmbedBuilder, CommandInteraction } from 'discord.js';
 import { BaseCommand } from './base-command';
 import { InquisitorService } from '@/services/inquisitor-service';
 import { Logger } from '@/utils/logger';
@@ -19,7 +19,7 @@ export class HelpCommand extends BaseCommand {
     this.inquisitorService = inquisitorService;
   }
 
-  async execute(message: Message, args: string[], context: CommandContext): Promise<void> {
+  async execute(message: Message | CommandInteraction, args: string[], context: CommandContext): Promise<void> {
     this.logCommand(context, this.name, args);
 
     if (context.isInquisitor) {
@@ -31,7 +31,7 @@ export class HelpCommand extends BaseCommand {
         .setTimestamp()
         .setFooter({ text: 'El Emperador ve todo' });
 
-      await message.reply({ embeds: [publicEmbed] });
+      await this.sendResponse(message, { embeds: [publicEmbed] });
 
       // Send admin commands via DM
       try {
@@ -76,10 +76,11 @@ export class HelpCommand extends BaseCommand {
           .setTimestamp()
           .setFooter({ text: WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.PROTECTION });
 
-        await message.author.send({ embeds: [dmEmbed] });
+        const user = 'author' in message ? message.author : message.user;
+        await user.send({ embeds: [dmEmbed] });
       } catch (error) {
         // If DM fails, send a follow-up message
-        await message.reply('*No puedo enviarte mensajes privados, Inquisidor. Verifica tu configuración.*');
+        await this.sendResponse(message, '*No puedo enviarte mensajes privados, Inquisidor. Verifica tu configuración.*');
       }
       return;
     }
@@ -90,7 +91,8 @@ export class HelpCommand extends BaseCommand {
       .setTitle('📜 Comandos del Capellán')
       .setDescription(`*En nombre del Emperador, estos son los comandos disponibles:*
 
-**Prefijo:** \`!capellan\` o \`!c\``)
+**Slash Commands:** \`/help\`, \`/herejia\`, \`/sermon\`, \`/buscar\`, etc.
+**Prefijo:** \`!capellan\` o \`!c\` (comandos tradicionales)`)
       .addFields(
         { 
           name: '🔍 Análisis de Herejía', 
@@ -136,13 +138,13 @@ export class HelpCommand extends BaseCommand {
         },
         {
           name: '🌟 Ejemplos de Uso',
-          value: '\`!c herejia El Emperador está muerto\`\n\`!c bendicion @usuario\`\n\`!c ranking perfil\`\n\`!c credo\`',
+          value: '\`/herejia mensaje: El Emperador está muerto\`\n\`/bendicion\`\n\`!c ranking perfil\`\n\`/credo\`',
           inline: false
         }
       )
       .setTimestamp()
       .setFooter({ text: WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.PROTECTION });
 
-    await message.reply({ embeds: [embed] });
+    await this.sendResponse(message, { embeds: [embed] });
   }
 }

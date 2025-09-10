@@ -25,8 +25,8 @@ export class VectorStore {
       }
 
       this.db = new Database(this.config.sqlitePath);
-      // Note: sqlite-vec extension loading is not available in bun:sqlite
-      // This is a simplified version for compatibility
+      // Using better-sqlite3 for cross-platform compatibility
+      // Cosine similarity is calculated manually in JavaScript
 
       // Create tables
       this.createTables();
@@ -48,10 +48,12 @@ export class VectorStore {
       )
     `;
 
+    // Simplified vector table without vec0 extension for Bun compatibility
     const createVectorTable = `
-      CREATE VIRTUAL TABLE IF NOT EXISTS vectors USING vec0(
+      CREATE TABLE IF NOT EXISTS vectors (
         document_id TEXT PRIMARY KEY,
-        embedding FLOAT[1536]
+        embedding TEXT NOT NULL,
+        FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
       )
     `;
 
@@ -115,6 +117,7 @@ export class VectorStore {
     `);
 
     try {
+
       this.db.transaction((trx) => {
         for (const document of documents) {
           insertDoc.run(
@@ -143,38 +146,68 @@ export class VectorStore {
 
   async searchSimilar(queryEmbedding: number[], limit: number = 5, threshold: number = 0.7): Promise<SearchResult[]> {
     try {
+      // Get all vectors and calculate similarity manually
       const searchQuery = `
         SELECT 
           d.id,
           d.content,
           d.metadata,
           d.chunk_index,
-          vec_distance_cosine(v.embedding, ?) as distance
+          v.embedding
         FROM documents d
         JOIN vectors v ON d.id = v.document_id
-        WHERE vec_distance_cosine(v.embedding, ?) < ?
-        ORDER BY distance ASC
-        LIMIT ?
       `;
 
-      const embeddingJson = JSON.stringify(queryEmbedding);
-      const results = this.db.prepare(searchQuery).all(embeddingJson, embeddingJson, 1 - threshold, limit);
+      const results = this.db.prepare(searchQuery).all() as any[];
 
-      return results.map((row: any) => ({
-        document: {
-          id: row.id,
-          content: row.content,
-          embedding: queryEmbedding, // We don't need to return the full embedding
-          metadata: JSON.parse(row.metadata),
-          chunkIndex: row.chunk_index
-        },
-        similarity: 1 - row.distance, // Convert distance to similarity
-        source: JSON.parse(row.metadata).source
-      }));
+      // Calculate cosine similarity for each result
+      const similarities = results.map((row: any) => {
+        const storedEmbedding = JSON.parse(row.embedding);
+        const similarity = this.calculateCosineSimilarity(queryEmbedding, storedEmbedding);
+        return {
+          document: {
+            id: row.id,
+            content: row.content,
+            embedding: queryEmbedding, // We don't need to return the full embedding
+            metadata: JSON.parse(row.metadata),
+            chunkIndex: row.chunk_index
+          },
+          similarity,
+          source: JSON.parse(row.metadata).source
+        };
+      });
+
+      // Filter by threshold and sort by similarity
+      return similarities
+        .filter(result => result.similarity >= threshold)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
     } catch (error: any) {
       this.logger.error('Failed to search similar documents', { error: error.message });
       throw error;
     }
+  }
+
+  private calculateCosineSimilarity(vecA: number[], vecB: number[]): number {
+    if (vecA.length !== vecB.length) {
+      return 0;
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
   async deleteDocumentsBySource(source: string): Promise<void> {

@@ -1,5 +1,5 @@
 
-import { Message } from 'discord.js';
+import { Message, CommandInteraction } from 'discord.js';
 import { BaseCommand } from '@/commands/base-command';
 import { HelpCommand } from '@/commands/help-command';
 import { HeresyCommand } from '@/commands/heresy-command';
@@ -227,5 +227,127 @@ export class CommandManager {
 
   getAITaskManager(): AITaskManager {
     return this.aiTaskManager;
+  }
+
+  async handleSlashCommand(interaction: CommandInteraction): Promise<void> {
+    const commandName = this.mapSlashToPrefixCommand(interaction);
+    const args = this.extractArgsFromInteraction(interaction);
+
+    const command = this.commands.get(commandName);
+    
+    if (!command) {
+      await interaction.reply('*Comando no reconocido, hermano. Usa `/capellan help` para ver los comandos disponibles.*');
+      return;
+    }
+
+    // Crear contexto
+    const context = this.createContextFromInteraction(interaction);
+
+    // Verificar privilegios de Inquisidor
+    if (command.requiresInquisitor && !context.isInquisitor) {
+      await interaction.reply('🚫 *Este comando requiere privilegios de Inquisidor.*');
+      return;
+    }
+
+    // Verificar rate limiting y AI task management para comandos AI
+    if (this.aiCommands.has(commandName)) {
+      // Verificar si hay una tarea AI activa para este usuario
+      if (this.aiTaskManager.hasActiveTask(context.userId)) {
+        await interaction.reply('⏳ *Ya tienes una consulta al Capellán en curso. Espera a que termine antes de hacer otra.*');
+        return;
+      }
+
+      // Verificar límite global de tareas AI
+      if (this.aiTaskManager.hasAnyActiveTask()) {
+        const activeTasks = this.aiTaskManager.getActiveTasks();
+        const activeUser = activeTasks[0];
+        await interaction.reply(`🔄 *El Capellán está ocupado atendiendo a ${activeUser.username}. Espera tu turno, hermano.*`);
+        return;
+      }
+
+      // Verificar rate limiting (excepto para Inquisidores)
+      if (!context.isInquisitor && !this.rateLimiter.isAllowed(context.userId)) {
+        const remainingTime = this.rateLimiter.getRemainingTime(context.userId);
+        await interaction.reply(`⏰ *Debes esperar ${remainingTime} segundos antes de hacer otra consulta costosa al Capellán.*`);
+        return;
+      }
+
+      // Iniciar seguimiento de tarea AI
+      this.aiTaskManager.startTask(context.userId, context.username, commandName, context.channelId);
+    }
+
+    try {
+      await command.execute(interaction, args, context);
+      
+      // Completar tarea AI si era un comando AI
+      if (this.aiCommands.has(commandName)) {
+        this.aiTaskManager.completeTask(context.userId);
+      }
+    } catch (error: any) {
+      // Completar tarea AI si era un comando AI (incluso en error)
+      if (this.aiCommands.has(commandName)) {
+        this.aiTaskManager.completeTask(context.userId);
+      }
+      
+      this.logger.error('Slash command execution failed', {
+        error: error?.message || 'Unknown error',
+        command: commandName,
+        userId: context.userId,
+        args
+      });
+
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply('⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*');
+      } else {
+        await interaction.followUp('⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*');
+      }
+    }
+  }
+
+  private mapSlashToPrefixCommand(interaction: CommandInteraction): string {
+    const commandName = interaction.commandName;
+
+    // Mapear comandos directos a comandos de prefijo
+    const commandMap: { [key: string]: string } = {
+      'help': 'help',
+      'herejia': 'herejia',
+      'sermon': 'sermon',
+      'buscar': 'buscar',
+      'fuentes': 'sources',
+      'bendicion': 'blessing',
+      'credo': 'credo',
+      'ranking': 'ranking',
+      'imperio': 'imperio'
+    };
+
+    return commandMap[commandName] || 'help';
+  }
+
+  private extractArgsFromInteraction(interaction: CommandInteraction): string[] {
+    const args: string[] = [];
+    
+    // Extraer argumentos de las opciones
+    const options = (interaction as any).options;
+    if (options?.data) {
+      options.data.forEach((option: any) => {
+        if (option.value) {
+          args.push(String(option.value));
+        }
+      });
+    }
+
+    return args;
+  }
+
+  private createContextFromInteraction(interaction: CommandInteraction): CommandContext {
+    const isInquisitor = this.inquisitorService.isInquisitor(interaction.user.id);
+    
+    return {
+      isInquisitor,
+      userId: interaction.user.id,
+      username: interaction.user.username,
+      channelId: interaction.channelId || '',
+      guildId: interaction.guildId || undefined
+    };
   }
 }

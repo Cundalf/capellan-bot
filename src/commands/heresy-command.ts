@@ -1,5 +1,5 @@
 
-import { Message, EmbedBuilder } from 'discord.js';
+import { Message, EmbedBuilder, CommandInteraction } from 'discord.js';
 import { BaseCommand } from './base-command';
 import { RAGSystem } from '@/services/rag-system';
 import { GamificationService } from '@/services/gamification-service';
@@ -22,18 +22,18 @@ export class HeresyCommand extends BaseCommand {
     this.gamificationService = gamificationService!; // Will be provided by CommandManager
   }
 
-  async execute(message: Message, args: string[], context: CommandContext): Promise<void> {
+  async execute(message: Message | CommandInteraction, args: string[], context: CommandContext): Promise<void> {
     this.logCommand(context, this.name, args);
 
     let textToAnalyze = args.join(' ');
 
-    // If no text provided, check if replying to another message
-    if (!textToAnalyze && message.reference?.messageId) {
+    // If no text provided, check if replying to another message (only for Message)
+    if (!textToAnalyze && 'reference' in message && message.reference?.messageId) {
       try {
         const referencedMessage = await message.channel.messages.fetch(message.reference.messageId);
         textToAnalyze = referencedMessage.content;
       } catch (error) {
-        await message.reply('*No puedo acceder al mensaje referenciado, hermano.*');
+        await this.sendResponse(message, '*No puedo acceder al mensaje referenciado, hermano.*');
         return;
       }
     }
@@ -44,12 +44,13 @@ export class HeresyCommand extends BaseCommand {
         .setTitle('📋 Uso del Comando de Análisis')
         .setDescription('*Para analizar herejía, utiliza uno de estos métodos:*')
         .addFields(
-          { name: '💬 Texto directo', value: '`!capellan herejia [mensaje]`', inline: false },
+          { name: '💬 Slash Command', value: '`/herejia mensaje: [texto]`', inline: false },
+          { name: '💬 Prefijo', value: '`!capellan herejia [mensaje]`', inline: false },
           { name: '↩️ Responder a mensaje', value: 'Responde a un mensaje con `!capellan herejia`', inline: false }
         )
         .setFooter({ text: 'El Emperador ve todo' });
 
-      await message.reply({ embeds: [helpEmbed] });
+      await this.sendResponse(message, { embeds: [helpEmbed] });
       return;
     }
 
@@ -58,7 +59,7 @@ export class HeresyCommand extends BaseCommand {
       .setDescription('🔍 *Consultando los archivos sagrados...*')
       .setFooter({ text: 'El Emperador ve todo' });
 
-    const loadingMsg = await message.reply({ embeds: [loadingEmbed] });
+    const loadingMsg = await this.sendResponse(message, { embeds: [loadingEmbed] });
 
     try {
       const result = await this.ragSystem.generateCapellanResponse(textToAnalyze, 'heresy_analysis');
@@ -98,7 +99,13 @@ export class HeresyCommand extends BaseCommand {
         });
       }
 
-      await loadingMsg.edit({ embeds: [embed] });
+      // For slash commands, we need to use followUp instead of edit
+      if ('edit' in loadingMsg) {
+        await loadingMsg.edit({ embeds: [embed] });
+      } else {
+        // For slash commands, we can't edit the original response, so we'll send a new one
+        await this.sendResponse(message, { embeds: [embed] });
+      }
 
       if (this.gamificationService) {
         await this.gamificationService.getOrCreateProfile(context.userId, context.username);
@@ -124,7 +131,13 @@ export class HeresyCommand extends BaseCommand {
         .setDescription('⚠️ *Los espíritus de la máquina me fallan. El Omnissiah requiere plegarias.*')
         .setFooter({ text: 'Error técnico reportado' });
 
-      await loadingMsg.edit({ embeds: [errorEmbed] });
+      // For slash commands, we need to use followUp instead of edit
+      if ('edit' in loadingMsg) {
+        await loadingMsg.edit({ embeds: [errorEmbed] });
+      } else {
+        // For slash commands, we can't edit the original response, so we'll send a new one
+        await this.sendResponse(message, { embeds: [errorEmbed] });
+      }
     }
   }
 

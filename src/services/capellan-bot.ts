@@ -5,6 +5,7 @@ import { RAGSystem } from './rag-system';
 import { InquisitorService } from './inquisitor-service';
 import { DocumentProcessor } from './document-processor';
 import { CommandManager } from './command-manager';
+import { SlashCommandManager } from './slash-command-manager';
 import { GamificationService } from './gamification-service';
 import { HeresyDetector } from '@/events/heresy-detector';
 import { WARHAMMER_CONSTANTS } from '@/utils/constants';
@@ -19,6 +20,7 @@ export class CapellanBot {
   private documentProcessor!: DocumentProcessor;
   private gamificationService!: GamificationService;
   private commandManager!: CommandManager;
+  private slashCommandManager!: SlashCommandManager;
   private heresyDetector!: HeresyDetector;
 
   constructor() {
@@ -60,6 +62,7 @@ export class CapellanBot {
       this.documentProcessor,
       this.gamificationService
     );
+    this.slashCommandManager = new SlashCommandManager(this.client, this.logger, this.commandManager);
     this.heresyDetector = new HeresyDetector(this.logger, this.ragSystem, this.commandManager, this.gamificationService);
   }
 
@@ -68,8 +71,12 @@ export class CapellanBot {
       this.onReady();
     });
 
-    this.client.on(Events.MessageCreate, async (message) => {
-      await this.onMessageCreate(message);
+    this.client.on(Events.MessageCreate, (message) => {
+      this.onMessageCreate(message);
+    });
+
+    this.client.on(Events.InteractionCreate, (interaction) => {
+      this.onInteractionCreate(interaction);
     });
 
     this.client.on(Events.Error, (error) => {
@@ -105,13 +112,20 @@ export class CapellanBot {
     });
   }
 
-  private onReady() {
+  private async onReady() {
     if (!this.client.user) return;
     
     this.logger.capellan(`Bot ${this.client.user.tag} está en servicio del Emperador!`);
     
+    // Register slash commands
+    try {
+      await this.slashCommandManager.registerSlashCommands();
+    } catch (error: any) {
+      this.logger.error('Failed to register slash commands', { error: error?.message || 'Unknown error' });
+    }
+    
     // Set bot activity
-    this.client.user.setActivity('🔍 Vigilando por herejía | !capellan help', { 
+    this.client.user.setActivity('🔍 Vigilando por herejía | /help', { 
       type: ActivityType.Watching 
     });
 
@@ -125,19 +139,57 @@ export class CapellanBot {
 
   private async onMessageCreate(message: any) {
     try {
-      await this.commandManager.handleCommand(message);
-      await this.heresyDetector.checkMessage(message);
-      
-      if (!message.author.bot && !message.content.startsWith('!')) {
-        await this.gamificationService.recordMessage(message.author.id);
+      // Verificar que el mensaje sea válido
+      if (!message || !message.author || message.author.bot) {
+        return;
       }
+
+      // Manejar comandos de forma asíncrona sin bloquear
+      setImmediate(async () => {
+        try {
+          await this.commandManager.handleCommand(message);
+          await this.heresyDetector.checkMessage(message);
+          
+          if (!message.content.startsWith('!')) {
+            await this.gamificationService.recordMessage(message.author.id);
+          }
+        } catch (error: any) {
+          this.logger.error('Error processing message', {
+            error: error?.message || 'Unknown error',
+            messageId: message?.id,
+            userId: message?.author?.id,
+            channelId: message?.channel?.id
+          });
+        }
+      });
       
     } catch (error: any) {
-      this.logger.error('Error processing message', {
-        error: error?.message || 'Unknown error',
-        messageId: message.id,
-        userId: message.author?.id,
-        channelId: message.channel.id
+      this.logger.error('Error in onMessageCreate', {
+        error: error?.message || 'Unknown error'
+      });
+    }
+  }
+
+  private async onInteractionCreate(interaction: any) {
+    try {
+      // Solo manejar comandos slash
+      if (interaction && typeof interaction.isCommand === 'function' && interaction.isCommand()) {
+        setImmediate(async () => {
+          try {
+            await this.commandManager.handleSlashCommand(interaction);
+          } catch (error: any) {
+            this.logger.error('Error processing interaction', {
+              error: error?.message || 'Unknown error',
+              interactionId: interaction?.id,
+              userId: interaction?.user?.id,
+              channelId: interaction?.channelId
+            });
+          }
+        });
+      }
+    } catch (error: any) {
+      this.logger.error('Error in onInteractionCreate', {
+        error: error?.message || 'Unknown error'
       });
     }
   }
