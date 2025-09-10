@@ -1,0 +1,47 @@
+{
+  "name": "capellan-bot",
+  "version": "1.0.0",
+  "description": "Bot de Discord que simula un Capellán de los Adeptus Astartes en el universo de Warhammer 40k",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "bun run --watch src/main.ts",
+    "build": "bun build src/main.ts --outdir dist --minify --sourcemap --target=node",
+    "start": "bun dist/main.js",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "setup": "mkdir -p database/wh40k-documents database/backups logs exports && echo '{}' > database/inquisidores.json || true",
+    "postinstall": "npm run setup",
+    "backup": "bun run scripts/backup.ts",
+    "maintenance": "bun run scripts/maintenance.ts",
+    "purge": "bun run scripts/purge.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.22.1",
+    "openai": "^5.20.0",
+    "node-cron": "^4.2.1",
+    "pdfjs-dist": "^4.8.69",
+    "axios": "^1.11.0",
+    "sqlite-vec": "^0.1.6"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.21",
+    "@types/node": "^22.7.7",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "warhammer",
+    "40k",
+    "rag",
+    "ai",
+    "capellan"
+  ],
+  "author": "Cundalf",
+  "license": "MIT"
+}

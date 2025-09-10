@@ -1,0 +1,79 @@
+# Capellán Bot - Cron Jobs Example
+# Copia este archivo como cron-jobs y ajusta las rutas según tu instalación
+# Para instalar: crontab cron-jobs
+
+# Variables de entorno
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+HOME=/ruta/a/tu/proyecto/capellan-bot
+
+# ============================================
+# TAREAS AUTOMÁTICAS DEL CAPELLÁN BOT
+# ============================================
+
+# Backup automático semanal
+# Ejecuta todos los domingos a las 2:00 AM  
+0 2 * * 0 cd $HOME && bun run backup >> logs/cron-backup.log 2>&1
+
+# Mantenimiento mensual de la base de datos
+# Ejecuta el primer día de cada mes a las 1:00 AM
+0 1 1 * * cd $HOME && bun run maintenance >> logs/cron-maintenance.log 2>&1
+
+# ============================================
+# SCRIPTS DE MANTENIMIENTO DISPONIBLES
+# ============================================
+
+# Scripts disponibles en package.json:
+# - bun run backup      : Crear backup del sistema
+# - bun run maintenance : Optimizar y validar base de datos
+# - bun run purge       : Reconstruir índice de conocimiento (IRREVERSIBLE)
+
+# ============================================
+# MONITOREO Y ALERTAS (OPCIONAL)
+# ============================================
+
+# Verificar que el bot esté funcionando (cada 5 minutos)
+# Opcional: crear script de health check
+# */5 * * * * cd $HOME && bun run scripts/health-check.ts >> logs/cron-health.log 2>&1
+
+# ============================================
+# INSTALACIÓN EN DIFERENTES SISTEMAS
+# ============================================
+
+# Para Ubuntu/Debian:
+# 1. Copia este archivo como cron-jobs
+# 2. Ajusta la variable HOME con tu ruta real
+# 3. Instala: crontab cron-jobs
+# 4. Verifica: crontab -l
+
+# Para Windows (con WSL):
+# 1. Instala WSL2 con Ubuntu
+# 2. Sigue las instrucciones de Ubuntu/Debian
+# 3. O usa Task Scheduler de Windows con comandos wsl
+
+# Para macOS:
+# 1. Usa launchd en lugar de cron (más confiable)
+# 2. O sigue las instrucciones similares a Ubuntu
+
+# ============================================
+# LOGS Y MONITOREO
+# ============================================
+
+# Los logs se guardan en:
+# - logs/cron-backup.log  
+# - logs/cron-maintenance.log
+
+# Para ver logs en tiempo real:
+# tail -f logs/cron-*.log
+
+# Para limpiar logs antiguos (mensual):
+# 0 0 1 * * find $HOME/logs -name "cron-*.log" -mtime +30 -delete
+
+# ============================================
+# NOTAS IMPORTANTES
+# ============================================
+
+# - El script 'purge' NO debe ejecutarse automáticamente (es destructivo)
+# - Solo ejecutar 'purge' manualmente cuando haya problemas con el índice
+# - Siempre hacer backup antes de ejecutar 'purge'
+# - Los scripts de mantenimiento están documentados en scripts/README.md
