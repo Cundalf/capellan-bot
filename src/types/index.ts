@@ -64,7 +64,7 @@ export interface CommandContext {
   guildId?: string;
 }
 
-export type CommandType = 'heresy_analysis' | 'daily_sermon' | 'knowledge_search' | 'general';
+export type CommandType = 'heresy_analysis' | 'daily_sermon' | 'knowledge_search' | 'questions' | 'general';
 
 export interface LogEntry {
   timestamp: string;

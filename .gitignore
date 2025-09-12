@@ -12,9 +12,14 @@ dist/
 build/
 
 # Database files
-database/
-*.sqlite
-*.sqlite3
+database/*.sqlite
+database/*.sqlite3
+database/vector-store.json
+database/inquisidores.json
+database/user-profiles.json
+
+# Exception: Keep base documents directory
+!database/base-documents/
 
 # Logs
 *.log
@@ -48,9 +53,9 @@ backups/
 wh40k-documents/
 *.pdf
 
-# JSON stores (except example files)
-inquisidores.json
-vector-store.json
+# Exception: Keep base documents (essential markdown files)
+!database/base-documents/
+!database/base-documents/**/*.md
 
 # Coverage reports
 coverage/

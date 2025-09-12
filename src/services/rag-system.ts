@@ -5,6 +5,15 @@ import { Logger } from '@/utils/logger';
 import { WARHAMMER_CONSTANTS } from '@/utils/constants';
 import { DocumentMetadata, VectorDocument, RAGResponse, RAGStats, CommandType } from '@/types';
 
+// Define collections for different command types
+const RAG_COLLECTIONS = {
+  heresy_analysis: ['heresy-analysis'],
+  daily_sermon: ['sermons'],
+  knowledge_search: ['general-lore', 'user'], // Include user documents for general knowledge
+  questions: ['general-lore', 'heresy-analysis', 'sermons', 'user'], // All collections for questions
+  general: ['user'] // Default for backwards compatibility
+} as const;
+
 export class RAGSystem {
   private openai: OpenAI;
   private vectorStore: VectorStore;
@@ -39,11 +48,15 @@ export class RAGSystem {
       // Generate embedding for the query
       const queryEmbedding = await this.generateEmbedding(query);
 
-      // Search for similar documents
+      // Get collections for this command type
+      const collections = RAG_COLLECTIONS[type] || RAG_COLLECTIONS.general;
+      
+      // Search for similar documents in the appropriate collections
       const searchResults = await this.vectorStore.searchSimilar(
         queryEmbedding,
         WARHAMMER_CONSTANTS.RAG_CONFIG.MAX_RESULTS,
-        WARHAMMER_CONSTANTS.RAG_CONFIG.SIMILARITY_THRESHOLD
+        WARHAMMER_CONSTANTS.RAG_CONFIG.SIMILARITY_THRESHOLD,
+        collections
       );
 
       // Build context from search results
@@ -175,7 +188,7 @@ ${context}
     return fallbacks[type] || fallbacks.general;
   }
 
-  async addDocument(content: string, metadata: DocumentMetadata): Promise<void> {
+  async addDocument(content: string, metadata: DocumentMetadata, collection: string = 'user', isBaseDocument: boolean = false): Promise<void> {
     try {
       // Split content into chunks
       const chunks = this.chunkText(content);
@@ -194,11 +207,13 @@ ${context}
         });
       }
 
-      await this.vectorStore.addDocuments(documents);
+      await this.vectorStore.addDocuments(documents, collection, isBaseDocument);
       this.logger.info('Document added to RAG system', { 
         source: metadata.source, 
         chunks: chunks.length,
-        type: metadata.type
+        type: metadata.type,
+        collection,
+        isBaseDocument
       });
     } catch (error: any) {
       this.logger.error('Failed to add document to RAG system', { 
@@ -252,6 +267,23 @@ ${context}
     this.logger.info('Rebuilding RAG index...');
     await this.vectorStore.clearAllDocuments();
     this.logger.info('RAG index rebuilt (cleared - documents need to be re-added)');
+  }
+
+  async hasBaseDocuments(collection?: string): Promise<boolean> {
+    return await this.vectorStore.hasBaseDocuments(collection);
+  }
+
+  async getCollections(): Promise<string[]> {
+    return await this.vectorStore.getCollections();
+  }
+
+  async clearCollection(collection: string): Promise<void> {
+    await this.vectorStore.clearCollection(collection);
+    this.logger.info('Collection cleared', { collection });
+  }
+
+  getCollectionStats(collection: string): { documents: number; sources: string[] } {
+    return this.vectorStore.getCollectionStats(collection);
   }
 
   getStats(): RAGStats {

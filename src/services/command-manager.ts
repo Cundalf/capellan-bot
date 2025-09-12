@@ -13,6 +13,7 @@ import { SearchCommand } from '@/commands/search-command';
 import { SourcesCommand } from '@/commands/sources-command';
 import { RankingCommand } from '@/commands/ranking-command';
 import { ImperioCommand } from '@/commands/imperio-command';
+import { AskCommand } from '@/commands/ask-command';
 import { InquisitorService } from './inquisitor-service';
 import { RAGSystem } from './rag-system';
 import { DocumentProcessor } from './document-processor';
@@ -31,7 +32,7 @@ export class CommandManager {
   private aiTaskManager: AITaskManager;
   
   // AI commands that consume OpenAI tokens and should be rate limited
-  private readonly aiCommands = new Set(['herejia', 'heresy', 'h', 'sermon', 's', 'conocimiento', 'knowledge', 'k', 'buscar', 'search']);
+  private readonly aiCommands = new Set(['herejia', 'heresy', 'h', 'sermon', 's', 'conocimiento', 'knowledge', 'k', 'buscar', 'search', 'preguntar', 'ask', 'pregunta', 'question']);
 
   constructor(
     logger: Logger,
@@ -73,7 +74,8 @@ export class CommandManager {
       new SearchCommand(this.logger, ragSystem),
       new SourcesCommand(this.logger, ragSystem),
       new RankingCommand(this.logger, this.gamificationService),
-      new ImperioCommand(this.logger, this.gamificationService)
+      new ImperioCommand(this.logger, this.gamificationService),
+      new AskCommand(this.logger, ragSystem)
     ];
 
     // Register commands and their aliases

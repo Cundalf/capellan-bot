@@ -44,6 +44,8 @@ export class VectorStore {
         content TEXT NOT NULL,
         metadata TEXT NOT NULL,
         chunk_index INTEGER NOT NULL,
+        collection TEXT DEFAULT 'user',
+        is_base_document BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `;
@@ -63,12 +65,14 @@ export class VectorStore {
     // Create indexes
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents(json_extract(metadata, "$.source"))');
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_chunk ON documents(chunk_index)');
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_collection ON documents(collection)');
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_is_base ON documents(is_base_document)');
   }
 
-  async addDocument(document: VectorDocument): Promise<void> {
+  async addDocument(document: VectorDocument, collection: string = 'user', isBaseDocument: boolean = false): Promise<void> {
     const insertDoc = this.db.prepare(`
-      INSERT OR REPLACE INTO documents (id, content, metadata, chunk_index)
-      VALUES (?, ?, ?, ?)
+      INSERT OR REPLACE INTO documents (id, content, metadata, chunk_index, collection, is_base_document)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     const insertVector = this.db.prepare(`
@@ -82,7 +86,9 @@ export class VectorStore {
           document.id,
           document.content,
           JSON.stringify(document.metadata),
-          document.chunkIndex
+          document.chunkIndex,
+          collection,
+          isBaseDocument ? 1 : 0
         );
 
         insertVector.run(
@@ -94,7 +100,9 @@ export class VectorStore {
       this.logger.debug('Document added to vector store', { 
         id: document.id, 
         source: document.metadata.source,
-        chunkIndex: document.chunkIndex
+        chunkIndex: document.chunkIndex,
+        collection,
+        isBaseDocument
       });
     } catch (error: any) {
       this.logger.error('Failed to add document to vector store', { 
@@ -105,10 +113,10 @@ export class VectorStore {
     }
   }
 
-  async addDocuments(documents: VectorDocument[]): Promise<void> {
+  async addDocuments(documents: VectorDocument[], collection: string = 'user', isBaseDocument: boolean = false): Promise<void> {
     const insertDoc = this.db.prepare(`
-      INSERT OR REPLACE INTO documents (id, content, metadata, chunk_index)
-      VALUES (?, ?, ?, ?)
+      INSERT OR REPLACE INTO documents (id, content, metadata, chunk_index, collection, is_base_document)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     const insertVector = this.db.prepare(`
@@ -124,7 +132,9 @@ export class VectorStore {
             document.id,
             document.content,
             JSON.stringify(document.metadata),
-            document.chunkIndex
+            document.chunkIndex,
+            collection,
+            isBaseDocument ? 1 : 0
           );
 
           insertVector.run(
@@ -134,7 +144,11 @@ export class VectorStore {
         }
       });
 
-      this.logger.info('Batch documents added to vector store', { count: documents.length });
+      this.logger.info('Batch documents added to vector store', { 
+        count: documents.length, 
+        collection, 
+        isBaseDocument 
+      });
     } catch (error: any) {
       this.logger.error('Failed to add documents batch to vector store', { 
         error: error.message, 
@@ -144,21 +158,30 @@ export class VectorStore {
     }
   }
 
-  async searchSimilar(queryEmbedding: number[], limit: number = 5, threshold: number = 0.7): Promise<SearchResult[]> {
+  async searchSimilar(queryEmbedding: number[], limit: number = 5, threshold: number = 0.7, collections?: string[]): Promise<SearchResult[]> {
     try {
-      // Get all vectors and calculate similarity manually
-      const searchQuery = `
+      // Build query with collection filter if specified
+      let searchQuery = `
         SELECT 
           d.id,
           d.content,
           d.metadata,
           d.chunk_index,
+          d.collection,
           v.embedding
         FROM documents d
         JOIN vectors v ON d.id = v.document_id
       `;
 
-      const results = this.db.prepare(searchQuery).all() as any[];
+      const queryParams: any[] = [];
+      
+      if (collections && collections.length > 0) {
+        const placeholders = collections.map(() => '?').join(',');
+        searchQuery += ` WHERE d.collection IN (${placeholders})`;
+        queryParams.push(...collections);
+      }
+
+      const results = this.db.prepare(searchQuery).all(...queryParams) as any[];
 
       // Calculate cosine similarity for each result
       const similarities = results.map((row: any) => {
@@ -289,6 +312,77 @@ export class VectorStore {
   async close(): Promise<void> {
     this.db.close();
     this.logger.info('Vector store database closed');
+  }
+
+  // Check if base documents exist for a specific collection
+  async hasBaseDocuments(collection?: string): Promise<boolean> {
+    try {
+      let query = 'SELECT COUNT(*) as count FROM documents WHERE is_base_document = 1';
+      const params: any[] = [];
+      
+      if (collection) {
+        query += ' AND collection = ?';
+        params.push(collection);
+      }
+
+      const result = this.db.prepare(query).get(...params) as { count: number };
+      return result.count > 0;
+    } catch (error: any) {
+      this.logger.error('Failed to check for base documents', { error: error.message });
+      return false;
+    }
+  }
+
+  // Get all available collections
+  async getCollections(): Promise<string[]> {
+    try {
+      const results = this.db.prepare('SELECT DISTINCT collection FROM documents').all() as { collection: string }[];
+      return results.map(r => r.collection);
+    } catch (error: any) {
+      this.logger.error('Failed to get collections', { error: error.message });
+      return [];
+    }
+  }
+
+  // Delete all documents in a specific collection
+  async clearCollection(collection: string): Promise<void> {
+    try {
+      const deleteQuery = `DELETE FROM documents WHERE collection = ?`;
+      const deleteVectorsQuery = `
+        DELETE FROM vectors 
+        WHERE document_id IN (SELECT id FROM documents WHERE collection = ?)
+      `;
+
+      this.db.transaction((trx) => {
+        this.db.prepare(deleteVectorsQuery).run(collection);
+        this.db.prepare(deleteQuery).run(collection);
+      });
+
+      this.logger.info('Collection cleared', { collection });
+    } catch (error: any) {
+      this.logger.error('Failed to clear collection', { error: error.message, collection });
+      throw error;
+    }
+  }
+
+  // Get stats for a specific collection
+  getCollectionStats(collection: string): { documents: number; sources: string[] } {
+    try {
+      const documentsCount = this.db.prepare('SELECT COUNT(*) as count FROM documents WHERE collection = ?').get(collection) as { count: number };
+      const sourcesResult = this.db.prepare(`
+        SELECT DISTINCT json_extract(metadata, '$.source') as source 
+        FROM documents 
+        WHERE collection = ?
+      `).all(collection) as { source: string }[];
+
+      return {
+        documents: documentsCount.count,
+        sources: sourcesResult.map(s => s.source)
+      };
+    } catch (error: any) {
+      this.logger.error('Failed to get collection stats', { error: error.message, collection });
+      return { documents: 0, sources: [] };
+    }
   }
 
   // Utility method for maintenance

@@ -115,7 +115,17 @@ export class SlashCommandManager {
 
       new SlashCommandBuilder()
         .setName('imperio')
-        .setDescription('Información sobre el Imperio')
+        .setDescription('Información sobre el Imperio'),
+
+      new SlashCommandBuilder()
+        .setName('preguntar')
+        .setDescription('Pregunta al Capellán sobre el lore de Warhammer 40k')
+        .addStringOption(option =>
+          option
+            .setName('pregunta')
+            .setDescription('Tu pregunta sobre el lore')
+            .setRequired(true)
+        )
     ];
 
     return commands.map(command => command.toJSON());
@@ -215,7 +225,8 @@ export class SlashCommandManager {
       'bendicion': 'blessing',
       'credo': 'credo',
       'ranking': 'ranking',
-      'imperio': 'imperio'
+      'imperio': 'imperio',
+      'preguntar': 'preguntar'
     };
 
     return commandMap[commandName] || 'help';

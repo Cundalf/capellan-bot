@@ -7,6 +7,7 @@ import { DocumentProcessor } from './document-processor';
 import { CommandManager } from './command-manager';
 import { SlashCommandManager } from './slash-command-manager';
 import { GamificationService } from './gamification-service';
+import { BaseDocumentsLoader } from './base-documents-loader';
 import { HeresyDetector } from '@/events/heresy-detector';
 import { WARHAMMER_CONSTANTS } from '@/utils/constants';
 import cron from 'node-cron';
@@ -22,6 +23,7 @@ export class CapellanBot {
   private commandManager!: CommandManager;
   private slashCommandManager!: SlashCommandManager;
   private heresyDetector!: HeresyDetector;
+  private baseDocumentsLoader!: BaseDocumentsLoader;
 
   constructor() {
     // Validate environment first
@@ -55,6 +57,7 @@ export class CapellanBot {
     this.inquisitorService = new InquisitorService(this.logger);
     this.documentProcessor = new DocumentProcessor(this.logger, this.ragSystem);
     this.gamificationService = new GamificationService(this.logger);
+    this.baseDocumentsLoader = new BaseDocumentsLoader(this.ragSystem, this.logger);
     this.commandManager = new CommandManager(
       this.logger,
       this.inquisitorService,
@@ -116,6 +119,19 @@ export class CapellanBot {
     if (!this.client.user) return;
     
     this.logger.capellan(`Bot ${this.client.user.tag} está en servicio del Emperador!`);
+    
+    // Initialize base documents
+    try {
+      await this.baseDocumentsLoader.initializeBaseDocuments();
+      const status = await this.baseDocumentsLoader.checkBaseDocumentsStatus();
+      this.logger.info('Base documents status', {
+        heresyAnalysis: status.heresyAnalysis.count,
+        sermons: status.sermons.count, 
+        generalLore: status.generalLore.count
+      });
+    } catch (error: any) {
+      this.logger.error('Failed to initialize base documents', { error: error?.message || 'Unknown error' });
+    }
     
     // Register slash commands
     try {
