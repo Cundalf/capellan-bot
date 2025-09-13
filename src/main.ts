@@ -7,8 +7,7 @@ async function main() {
   try {
     const bot = new CapellanBot();
     await bot.start();
-    
-    console.log('✅ Bot Capellán operativo - Ave Imperator!');
+    // Success message is now handled in onReady() after full initialization
     
   } catch (error) {
     console.error('❌ Error fatal iniciando el bot:', error);

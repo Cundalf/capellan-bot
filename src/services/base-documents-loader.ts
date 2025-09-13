@@ -48,7 +48,11 @@ export class BaseDocumentsLoader {
     // Check if this collection already has base documents
     const hasExisting = await this.ragSystem.hasBaseDocuments(collection);
     if (hasExisting) {
-      this.logger.info(`Base documents already exist for collection: ${collection}`);
+      const stats = this.ragSystem.getCollectionStats(collection);
+      this.logger.info(`⏭️  Base documents already exist for collection: ${collection}`, {
+        documents: stats.documents,
+        sources: stats.sources.length
+      });
       return;
     }
 

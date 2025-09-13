@@ -118,39 +118,43 @@ export class CapellanBot {
   private async onReady() {
     if (!this.client.user) return;
     
-    this.logger.capellan(`Bot ${this.client.user.tag} está en servicio del Emperador!`);
+    this.logger.info(`🕊️ Bot ${this.client.user.tag} conectado - finalizando configuración...`);
     
-    // Initialize base documents
     try {
-      await this.baseDocumentsLoader.initializeBaseDocuments();
+      // Base documents are already loaded before Discord connection
+      // Just get the final status for logging
       const status = await this.baseDocumentsLoader.checkBaseDocumentsStatus();
-      this.logger.info('Base documents status', {
-        heresyAnalysis: status.heresyAnalysis.count,
-        sermons: status.sermons.count, 
-        generalLore: status.generalLore.count
-      });
-    } catch (error: any) {
-      this.logger.error('Failed to initialize base documents', { error: error?.message || 'Unknown error' });
-    }
-    
-    // Register slash commands
-    try {
-      await this.slashCommandManager.registerSlashCommands();
-    } catch (error: any) {
-      this.logger.error('Failed to register slash commands', { error: error?.message || 'Unknown error' });
-    }
-    
-    // Set bot activity
-    this.client.user.setActivity('🔍 Vigilando por herejía | /help', { 
-      type: ActivityType.Watching 
-    });
+      const totalDocs = status.heresyAnalysis.count + status.sermons.count + status.generalLore.count;
 
-    // Log bot statistics
-    this.logger.info('Bot statistics', {
-      guilds: this.client.guilds.cache.size,
-      users: this.client.users.cache.size,
-      channels: this.client.channels.cache.size
-    });
+      // Step 1: Register slash commands  
+      this.logger.info('⚔️  Registrando comandos...');
+      await this.slashCommandManager.registerSlashCommands();
+      this.logger.info('✅ Comandos registrados exitosamente');
+
+      // Step 2: Set bot activity
+      this.client.user.setActivity('🔍 Vigilando por herejía | /help', { 
+        type: ActivityType.Watching 
+      });
+
+      // Step 3: Final initialization complete
+      this.logger.capellan(`🕊️ Bot Capellán completamente operativo - Ave Imperator!`);
+      this.logger.info('📊 Estadísticas del bot', {
+        guilds: this.client.guilds.cache.size,
+        users: this.client.users.cache.size,
+        channels: this.client.channels.cache.size,
+        baseDocuments: totalDocs
+      });
+
+      // Final success message
+      console.log('\n✅ Bot Capellán listo para servir al Emperador! 🕊️⚡👑\n');
+
+    } catch (error: any) {
+      this.logger.error('❌ Error crítico durante la finalización', { 
+        error: error?.message || 'Unknown error' 
+      });
+      console.log('\n❌ Bot Capellán falló en la finalización - revisando logs...\n');
+      process.exit(1); // Exit if initialization fails
+    }
   }
 
   private async onMessageCreate(message: any) {
@@ -212,15 +216,40 @@ export class CapellanBot {
 
   async start(): Promise<void> {
     try {
-      this.logger.info('Starting Capellan Bot...');
+      this.logger.info('Iniciando servicios del Capellán...');
       
-      // Initialize RAG system
+      // Initialize RAG system first
+      this.logger.info('Inicializando sistema RAG...');
       await this.initializeRAGSystem();
       
-      // Login to Discord
+      // Initialize base documents BEFORE connecting to Discord
+      this.logger.info('📝 Inicializando documentos base...');
+      await this.baseDocumentsLoader.initializeBaseDocuments();
+      
+      // Wait for database transactions to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Verify base documents were loaded
+      const status = await this.baseDocumentsLoader.checkBaseDocumentsStatus();
+      const totalDocs = status.heresyAnalysis.count + status.sermons.count + status.generalLore.count;
+      
+      if (totalDocs > 0) {
+        this.logger.info(`✅ Documentos base cargados correctamente`, {
+          totalDocuments: totalDocs,
+          heresyAnalysis: status.heresyAnalysis.count,
+          sermons: status.sermons.count,
+          generalLore: status.generalLore.count
+        });
+      } else {
+        this.logger.warn('⚠️  No se encontraron documentos base en la base de datos');
+        throw new Error('Base documents not loaded - bot cannot function properly');
+      }
+      
+      // Now connect to Discord (this will trigger onReady when successful)
+      this.logger.info('Conectando a Discord...');
       await this.client.login(process.env.DISCORD_TOKEN!);
       
-      this.logger.capellan('Bot iniciado exitosamente - Ave Imperator!');
+      // Success message is now handled in onReady() after full initialization
       
     } catch (error: any) {
       this.logger.error('Failed to start bot', { error: error?.message || 'Unknown error' });
