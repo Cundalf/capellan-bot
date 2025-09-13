@@ -106,6 +106,10 @@ export class SlashCommandManager {
         .setDescription('Recibe una bendición del Capellán'),
 
       new SlashCommandBuilder()
+        .setName('saludar')
+        .setDescription('El Capellán te saluda como un verdadero servidor del Emperador'),
+
+      new SlashCommandBuilder()
         .setName('credo')
         .setDescription('Recita el Credo Imperial'),
 
@@ -223,6 +227,7 @@ export class SlashCommandManager {
       'buscar': 'buscar',
       'fuentes': 'sources',
       'bendicion': 'blessing',
+      'saludar': 'saludar',
       'credo': 'credo',
       'ranking': 'ranking',
       'imperio': 'imperio',

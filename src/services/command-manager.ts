@@ -7,6 +7,7 @@ import { SermonCommand } from '@/commands/sermon-command';
 import { InquisitorCommand } from '@/commands/inquisitor-command';
 import { KnowledgeCommand } from '@/commands/knowledge-command';
 import { BlessingCommand } from '@/commands/blessing-command';
+import { GreetCommand } from '@/commands/greet-command';
 import { PenitenceCommand } from '@/commands/penitence-command';
 import { CredoCommand } from '@/commands/credo-command';
 import { SearchCommand } from '@/commands/search-command';
@@ -69,6 +70,7 @@ export class CommandManager {
       new InquisitorCommand(this.logger, this.inquisitorService),
       new KnowledgeCommand(this.logger, documentProcessor, ragSystem),
       new BlessingCommand(this.logger, this.gamificationService),
+      new GreetCommand(this.logger),
       new PenitenceCommand(this.logger, this.gamificationService, this.inquisitorService),
       new CredoCommand(this.logger, this.gamificationService),
       new SearchCommand(this.logger, ragSystem),
@@ -317,6 +319,7 @@ export class CommandManager {
       'buscar': 'buscar',
       'fuentes': 'sources',
       'bendicion': 'blessing',
+      'saludar': 'saludar',
       'credo': 'credo',
       'ranking': 'ranking',
       'imperio': 'imperio'
