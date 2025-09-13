@@ -128,19 +128,22 @@ Relevancia: ${Math.round(result.similarity * 100)}%`
     const typeSpecificPrompts = {
       heresy_analysis: `${basePrompt}
 
-ANALIZA HEREJÍA con criterio MILITAR W40K:
+ANALIZA HEREJÍA con criterio MILITAR W40K - SE ESTRICTO:
 
-PURA_FE: Odio a xenos (orkos, eldars, tau), devoción al Emperador, fervor de batalla
-SOSPECHOSO: Dudas menores, falta de fervor, cobardía  
+PURA_FE: Odio a xenos, devoción al Emperador, fervor de batalla, odio al Caos
+SOSPECHOSO: Dudas menores, falta de fervor, cobardía, quejas menores
 HEREJIA_MENOR: Cuestionar autoridad imperial, simpatía hacia xenos
-HEREJIA_MAYOR: Negar al Emperador, usar poderes psíquicos sin licencia
-HEREJIA_EXTREMA: Adorar al Caos, traicionar al Imperio, brujería
+HEREJIA_MAYOR: Negar al Emperador, criticar directamente su divinidad
+HEREJIA_EXTREMA: Llamar al Emperador "cadáver/muerto", decir que "nunca volverá", adorar al Caos, traicionar al Imperio, negar su divinidad
 
-IMPORTANTE: 
-- Lenguaje vulgar contra ENEMIGOS = BUENO (fervor imperial)
-- Palabrotas normales = NO ES HEREJÍA (somos guerreros)
-- Solo blasfemia contra Emperador/Imperio = HEREJÍA REAL
-- Respuesta DIRECTA en 1 párrafo`,
+CLASIFICACIÓN CRÍTICA:
+- Cualquier referencia al Emperador como "cadáver", "muerto", "no volverá" = HEREJIA_EXTREMA
+- Negar la divinidad del Emperador = HEREJIA_EXTREMA  
+- Blasfemar contra Su santo nombre = HEREJIA_EXTREMA
+- Palabrotas normales o vulgaridades = NO ES HEREJÍA
+- ANALIZA EL TEXTO EXACTO QUE SE TE PROPORCIONA
+
+FORMATO OBLIGATORIO: Empieza tu respuesta con el nivel de herejía y luego explica ESPECÍFICAMENTE qué en el texto analizado justifica esa clasificación.`,
 
       daily_sermon: `${basePrompt}
 
@@ -167,8 +170,11 @@ ${context}
       : '\n\nNo hay contexto específico disponible de los archivos sagrados.\n\n';
 
     const typeMessages = {
-      heresy_analysis: `ANALIZA LA SIGUIENTE DECLARACIÓN EN BUSCA DE HEREJÍA:
-"${query}"`,
+      heresy_analysis: `ANALIZA EXACTAMENTE ESTE TEXTO EN BUSCA DE HEREJÍA (no inventes ni cambies nada):
+
+TEXTO A ANALIZAR: "${query}"
+
+Clasifica la herejía basándote ÚNICAMENTE en estas palabras exactas. No hagas referencia a otros textos o ejemplos.`,
       daily_sermon: `GENERA UN SERMÓN DIARIO SOBRE: ${query}`,
       knowledge_search: `RESPONDE LA SIGUIENTE PREGUNTA SOBRE EL LORE: ${query}`,
       general: `RESPONDE COMO UN CAPELLÁN: ${query}`
