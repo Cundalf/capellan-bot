@@ -9,7 +9,8 @@ export function loadConfig(): BotConfig {
     logLevel: (process.env.LOG_LEVEL as BotConfig['logLevel']) || 'info',
     steamOffersChannelId: process.env.STEAM_OFFERS_CHANNEL_ID,
     steamOffersCheckInterval: parseInt(process.env.STEAM_OFFERS_CHECK_INTERVAL || '3'), // hours
-    minDiscountPercent: parseInt(process.env.MIN_DISCOUNT_PERCENT || '10')
+    minDiscountPercent: parseInt(process.env.MIN_DISCOUNT_PERCENT || '10'),
+    sermonChannelId: process.env.SERMON_CHANNEL_ID
   };
 }
 

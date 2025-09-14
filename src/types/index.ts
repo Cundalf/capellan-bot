@@ -57,6 +57,7 @@ export interface BotConfig {
   steamOffersChannelId?: string;
   steamOffersCheckInterval: number;
   minDiscountPercent: number;
+  sermonChannelId?: string;
 }
 
 export interface CommandContext {
@@ -177,4 +178,15 @@ export interface TrackedOffer {
 export interface SteamOffersData {
   lastCheck: string;
   trackedOffers: { [appid: string]: TrackedOffer };
+}
+
+export interface SermonData {
+  lastSermonDate: string; // YYYY-MM-DD format
+  sermonsSent: number;
+  lastSermonTopic?: string;
+}
+
+export interface SermonResult {
+  sermon: string;
+  topic: string;
 }

@@ -10,6 +10,7 @@ import { GamificationService } from './gamification-service';
 import { BaseDocumentsLoader } from './base-documents-loader';
 import { HeresyDetector } from '@/events/heresy-detector';
 import { SteamOffersService } from './steam-offers-service';
+import { SermonService } from './sermon-service';
 import { WARHAMMER_CONSTANTS } from '@/utils/constants';
 import cron from 'node-cron';
 
@@ -26,6 +27,7 @@ export class CapellanBot {
   private heresyDetector!: HeresyDetector;
   private baseDocumentsLoader!: BaseDocumentsLoader;
   private steamOffersService!: SteamOffersService;
+  private sermonService!: SermonService;
 
   constructor() {
     // Validate environment first
@@ -61,6 +63,7 @@ export class CapellanBot {
     this.gamificationService = new GamificationService(this.logger);
     this.baseDocumentsLoader = new BaseDocumentsLoader(this.ragSystem, this.logger);
     this.steamOffersService = new SteamOffersService(this.logger, this.config);
+    this.sermonService = new SermonService(this.logger, this.ragSystem);
     this.commandManager = new CommandManager(
       this.logger,
       this.inquisitorService,
@@ -99,8 +102,10 @@ export class CapellanBot {
   }
 
   private setupCronJobs() {
-    cron.schedule('0 6 * * *', async () => {
-      this.logger.info('Daily sermon cron triggered');
+    // Daily sermon at 19:40 (7:40 PM)
+    cron.schedule('40 19 * * *', async () => {
+      this.logger.info('Daily sermon cron triggered at Imperial Hour');
+      await this.sendDailySermon();
     });
 
     cron.schedule('0 3 * * *', async () => {
@@ -127,6 +132,8 @@ export class CapellanBot {
     });
 
     this.logger.info('Cron jobs configured', {
+      dailySermon: '19:40 daily',
+      sermonChannel: this.config.sermonChannelId || 'NOT CONFIGURED',
       steamOffersInterval: `Every ${checkInterval} hours`,
       steamOffersChannel: this.config.steamOffersChannelId || 'NOT CONFIGURED'
     });
@@ -172,6 +179,14 @@ export class CapellanBot {
         setTimeout(async () => {
           await this.checkAndNotifyOffers();
         }, 5000); // 5 seconds delay
+      }
+
+      // Check if we missed today's sermon on startup
+      if (this.config.sermonChannelId) {
+        this.logger.info('Checking for missed daily sermon on startup...');
+        setTimeout(async () => {
+          await this.checkMissedSermon();
+        }, 6000); // 6 seconds delay, after steam offers
       }
 
     } catch (error: any) {
@@ -368,6 +383,93 @@ export class CapellanBot {
     }
   }
 
+  private async sendDailySermon(): Promise<void> {
+    try {
+      // Skip if no sermon channel configured
+      if (!this.config.sermonChannelId) {
+        this.logger.debug('Sermon channel not configured, skipping daily sermon');
+        return;
+      }
+
+      // Check if sermon was already sent today
+      if (this.sermonService.hasSermonBeenSentToday()) {
+        this.logger.info('Daily sermon already sent today, skipping to prevent duplicate');
+        return;
+      }
+
+      this.logger.info('Generating and sending daily sermon...');
+
+      // Generate the sermon
+      const sermonResult = await this.sermonService.generateDailySermon();
+
+      // Get the sermon channel
+      const channel = await this.client.channels.fetch(this.config.sermonChannelId);
+
+      if (!channel || !channel.isTextBased() || !('send' in channel)) {
+        this.logger.error('Sermon channel not found or not text-based', {
+          channelId: this.config.sermonChannelId
+        });
+        return;
+      }
+
+      // Send the sermon
+      await channel.send(sermonResult.sermon);
+
+      // Mark sermon as sent for today
+      this.sermonService.markSermonAsSent(sermonResult.topic);
+
+      this.logger.info('Daily sermon sent successfully', {
+        channelId: this.config.sermonChannelId,
+        sermonLength: sermonResult.sermon.length,
+        topic: sermonResult.topic
+      });
+
+    } catch (error: any) {
+      this.logger.error('Error sending daily sermon', {
+        error: error?.message || 'Unknown error',
+        stack: error?.stack
+      });
+    }
+  }
+
+  private async checkMissedSermon(): Promise<void> {
+    try {
+      // Skip if no sermon channel configured
+      if (!this.config.sermonChannelId) {
+        return;
+      }
+
+      // If sermon was already sent today, nothing to do
+      if (this.sermonService.hasSermonBeenSentToday()) {
+        this.logger.debug('Daily sermon already sent today, no missed sermon');
+        return;
+      }
+
+      // Check if current time is past 19:40
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const sermonTime = 19 * 60 + 40; // 19:40 in minutes
+      const currentTime = currentHour * 60 + currentMinute;
+
+      if (currentTime >= sermonTime) {
+        this.logger.info('Bot startup detected missed sermon for today, sending now...');
+        await this.sendDailySermon();
+      } else {
+        this.logger.debug('Current time is before 19:40, sermon will be sent at scheduled time', {
+          currentTime: `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`,
+          sermonTime: '19:40'
+        });
+      }
+
+    } catch (error: any) {
+      this.logger.error('Error checking for missed sermon', {
+        error: error?.message || 'Unknown error',
+        stack: error?.stack
+      });
+    }
+  }
+
   private async shutdown(): Promise<void> {
     this.logger.info('Shutting down Capellan Bot...');
     
@@ -402,6 +504,10 @@ export class CapellanBot {
 
   getSteamOffersService(): SteamOffersService {
     return this.steamOffersService;
+  }
+
+  getSermonService(): SermonService {
+    return this.sermonService;
   }
 
   getStats() {
