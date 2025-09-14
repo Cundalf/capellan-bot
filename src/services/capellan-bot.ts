@@ -9,6 +9,7 @@ import { SlashCommandManager } from './slash-command-manager';
 import { GamificationService } from './gamification-service';
 import { BaseDocumentsLoader } from './base-documents-loader';
 import { HeresyDetector } from '@/events/heresy-detector';
+import { SteamOffersService } from './steam-offers-service';
 import { WARHAMMER_CONSTANTS } from '@/utils/constants';
 import cron from 'node-cron';
 
@@ -24,6 +25,7 @@ export class CapellanBot {
   private slashCommandManager!: SlashCommandManager;
   private heresyDetector!: HeresyDetector;
   private baseDocumentsLoader!: BaseDocumentsLoader;
+  private steamOffersService!: SteamOffersService;
 
   constructor() {
     // Validate environment first
@@ -58,6 +60,7 @@ export class CapellanBot {
     this.documentProcessor = new DocumentProcessor(this.logger, this.ragSystem);
     this.gamificationService = new GamificationService(this.logger);
     this.baseDocumentsLoader = new BaseDocumentsLoader(this.ragSystem, this.logger);
+    this.steamOffersService = new SteamOffersService(this.logger, this.config);
     this.commandManager = new CommandManager(
       this.logger,
       this.inquisitorService,
@@ -113,6 +116,20 @@ export class CapellanBot {
         this.logger.error('Weekly backup failed', { error: error?.message || 'Unknown error' });
       }
     });
+
+    // Steam offers check - runs every X hours based on config
+    const checkInterval = this.config.steamOffersCheckInterval;
+    const cronExpression = `0 */${checkInterval} * * *`; // Every X hours
+    
+    cron.schedule(cronExpression, async () => {
+      this.logger.info('Steam offers check triggered');
+      await this.checkAndNotifyOffers();
+    });
+
+    this.logger.info('Cron jobs configured', {
+      steamOffersInterval: `Every ${checkInterval} hours`,
+      steamOffersChannel: this.config.steamOffersChannelId || 'NOT CONFIGURED'
+    });
   }
 
   private async onReady() {
@@ -147,6 +164,15 @@ export class CapellanBot {
 
       // Final success message
       console.log('\n✅ Bot Capellán listo para servir al Emperador! 🕊️⚡👑\n');
+
+      // Initial Steam offers check if configured
+      if (this.config.steamOffersChannelId) {
+        this.logger.info('Performing initial Steam offers check...');
+        // Delay a bit to ensure everything is ready
+        setTimeout(async () => {
+          await this.checkAndNotifyOffers();
+        }, 5000); // 5 seconds delay
+      }
 
     } catch (error: any) {
       this.logger.error('❌ Error crítico durante la finalización', { 
@@ -281,6 +307,67 @@ export class CapellanBot {
     }
   }
 
+  private async checkAndNotifyOffers(): Promise<void> {
+    try {
+      // Skip if no channel configured
+      if (!this.config.steamOffersChannelId) {
+        this.logger.debug('Steam offers channel not configured, skipping check');
+        return;
+      }
+
+      this.logger.info('Checking for new Steam Warhammer offers...');
+      
+      const newOffers = await this.steamOffersService.checkForNewOffers();
+      
+      if (newOffers.length === 0) {
+        this.logger.info('No new Warhammer offers found');
+        return;
+      }
+
+      this.logger.info(`Found ${newOffers.length} new Warhammer offers, sending notification`);
+
+      // Get the notification channel
+      const channel = await this.client.channels.fetch(this.config.steamOffersChannelId);
+      
+      if (!channel || !channel.isTextBased() || !('send' in channel)) {
+        this.logger.error('Steam offers channel not found or not text-based', {
+          channelId: this.config.steamOffersChannelId
+        });
+        return;
+      }
+
+      // Create and send embeds
+      const embeds = this.steamOffersService.createOfferEmbeds(newOffers);
+      
+      // Send embeds in chunks (Discord limit is 10 embeds per message)
+      const maxEmbedsPerMessage = 10;
+      for (let i = 0; i < embeds.length; i += maxEmbedsPerMessage) {
+        const chunk = embeds.slice(i, i + maxEmbedsPerMessage);
+        await channel.send({ embeds: chunk });
+        
+        // Small delay between messages if sending multiple chunks
+        if (i + maxEmbedsPerMessage < embeds.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      // Mark offers as notified
+      this.steamOffersService.markOffersAsNotified(newOffers);
+
+      this.logger.info('Steam offers notification sent successfully', {
+        offersCount: newOffers.length,
+        embedsCount: embeds.length,
+        channelId: this.config.steamOffersChannelId
+      });
+
+    } catch (error: any) {
+      this.logger.error('Error in Steam offers notification', {
+        error: error?.message || 'Unknown error',
+        stack: error?.stack
+      });
+    }
+  }
+
   private async shutdown(): Promise<void> {
     this.logger.info('Shutting down Capellan Bot...');
     
@@ -313,6 +400,10 @@ export class CapellanBot {
     return this.inquisitorService;
   }
 
+  getSteamOffersService(): SteamOffersService {
+    return this.steamOffersService;
+  }
+
   getStats() {
     return {
       bot: {
@@ -322,7 +413,8 @@ export class CapellanBot {
         channels: this.client.channels.cache.size
       },
       rag: this.ragSystem.getStats(),
-      inquisitors: this.inquisitorService.getInquisitorCount()
+      inquisitors: this.inquisitorService.getInquisitorCount(),
+      steamOffers: this.steamOffersService.getStats()
     };
   }
 }

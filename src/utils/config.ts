@@ -6,7 +6,10 @@ export function loadConfig(): BotConfig {
     maxDailyEmbeddings: parseInt(process.env.MAX_DAILY_EMBEDDINGS || '1000'),
     sqlitePath: process.env.SQLITE_PATH || './database/vector-store.sqlite',
     documentsPath: process.env.DOCUMENTS_PATH || './database/wh40k-documents',
-    logLevel: (process.env.LOG_LEVEL as BotConfig['logLevel']) || 'info'
+    logLevel: (process.env.LOG_LEVEL as BotConfig['logLevel']) || 'info',
+    steamOffersChannelId: process.env.STEAM_OFFERS_CHANNEL_ID,
+    steamOffersCheckInterval: parseInt(process.env.STEAM_OFFERS_CHECK_INTERVAL || '3'), // hours
+    minDiscountPercent: parseInt(process.env.MIN_DISCOUNT_PERCENT || '10')
   };
 }
 

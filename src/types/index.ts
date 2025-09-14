@@ -54,6 +54,9 @@ export interface BotConfig {
   sqlitePath: string;
   documentsPath: string;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
+  steamOffersChannelId?: string;
+  steamOffersCheckInterval: number;
+  minDiscountPercent: number;
 }
 
 export interface CommandContext {
@@ -111,4 +114,67 @@ export interface Achievement {
   description: string;
   icon: string;
   condition: (profile: UserProfile) => boolean;
+}
+
+export interface SteamApp {
+  appid: number;
+  name: string;
+  short_description?: string;
+  header_image?: string;
+  website?: string;
+  developers?: string[];
+  publishers?: string[];
+  genres?: Array<{id: number; description: string}>;
+  categories?: Array<{id: number; description: string}>;
+  price_overview?: {
+    currency: string;
+    initial: number;
+    final: number;
+    discount_percent: number;
+    initial_formatted: string;
+    final_formatted: string;
+  };
+  release_date?: {
+    coming_soon: boolean;
+    date: string;
+  };
+  steam_appid?: number;
+}
+
+export interface SteamOffer {
+  appid: number;
+  name: string;
+  discountPercent: number;
+  originalPrice: string;
+  finalPrice: string;
+  currency: string;
+  headerImage?: string;
+  releaseDate?: string;
+  shortDescription?: string;
+  isWarhammerRelated: boolean;
+  steamUrl: string;
+}
+
+export interface OfferNotificationSettings {
+  guildId: string;
+  channelId: string;
+  enabled: boolean;
+  minDiscount: number;
+  lastNotification?: string;
+}
+
+export interface TrackedOffer {
+  appid: number;
+  name: string;
+  discountPercent: number;
+  finalPrice: string;
+  currency: string;
+  firstSeen: string;
+  lastNotified?: string;
+  notificationCount: number;
+}
+
+export interface SteamOffersData {
+  lastCheck: string;
+  trackedOffers: { [appid: string]: TrackedOffer };
 }

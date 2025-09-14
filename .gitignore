@@ -14,9 +14,7 @@ build/
 # Database files
 database/*.sqlite
 database/*.sqlite3
-database/vector-store.json
-database/inquisidores.json
-database/user-profiles.json
+database/*.json
 
 # Exception: Keep base documents directory
 !database/base-documents/
