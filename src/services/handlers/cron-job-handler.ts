@@ -1,0 +1,70 @@
+import cron from 'node-cron';
+import { Logger } from '@/utils/logger';
+import { BotConfig } from '@/types/index';
+import { GamificationService } from '../gamification-service';
+import { InquisitorService } from '../inquisitor-service';
+
+export class CronJobHandler {
+  constructor(
+    private logger: Logger,
+    private config: BotConfig,
+    private gamificationService: GamificationService,
+    private inquisitorService: InquisitorService,
+    private onDailySermon: () => Promise<void>,
+    private onSteamOffersCheck: () => Promise<void>
+  ) {}
+
+  setupCronJobs(): void {
+    this.setupDailySermon();
+    this.setupDatabaseMaintenance();
+    this.setupWeeklyBackup();
+    this.setupSteamOffersCheck();
+    this.logCronConfiguration();
+  }
+
+  private setupDailySermon(): void {
+    cron.schedule('40 19 * * *', async () => {
+      this.logger.info('Daily sermon cron triggered at Imperial Hour');
+      await this.onDailySermon();
+    });
+  }
+
+  private setupDatabaseMaintenance(): void {
+    cron.schedule('0 3 * * *', async () => {
+      this.logger.info('Running database maintenance');
+      await this.gamificationService.cleanupExpiredPenitence();
+    });
+  }
+
+  private setupWeeklyBackup(): void {
+    cron.schedule('0 2 * * 0', async () => {
+      this.logger.info('Creating weekly backup');
+      try {
+        await this.inquisitorService.createBackup();
+      } catch (error: any) {
+        this.logger.error('Weekly backup failed', {
+          error: error?.message || 'Unknown error'
+        });
+      }
+    });
+  }
+
+  private setupSteamOffersCheck(): void {
+    const checkInterval = this.config.steamOffersCheckInterval;
+    const cronExpression = `0 */${checkInterval} * * *`;
+
+    cron.schedule(cronExpression, async () => {
+      this.logger.info('Steam offers check triggered');
+      await this.onSteamOffersCheck();
+    });
+  }
+
+  private logCronConfiguration(): void {
+    this.logger.info('Cron jobs configured', {
+      dailySermon: '19:40 daily',
+      sermonChannel: this.config.sermonChannelId || 'NOT CONFIGURED',
+      steamOffersInterval: `Every ${this.config.steamOffersCheckInterval} hours`,
+      steamOffersChannel: this.config.steamOffersChannelId || 'NOT CONFIGURED'
+    });
+  }
+}
