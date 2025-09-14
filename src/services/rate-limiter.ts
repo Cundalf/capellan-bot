@@ -1,5 +1,4 @@
-
-import { Logger } from '@/utils/logger';
+import type { Logger } from '@/utils/logger';
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -19,7 +18,7 @@ export class RateLimiter {
   constructor(config: RateLimitConfig, logger: Logger) {
     this.config = config;
     this.logger = logger;
-    
+
     // Clean up expired limits every minute
     setInterval(() => this.cleanup(), 60000);
   }
@@ -37,7 +36,7 @@ export class RateLimiter {
       // First request or window has reset
       this.limits.set(userId, {
         requests: 1,
-        resetTime: now + this.config.windowMs
+        resetTime: now + this.config.windowMs,
       });
       return true;
     }
@@ -46,7 +45,7 @@ export class RateLimiter {
       this.logger.warn('Rate limit exceeded', {
         userId,
         requests: userLimit.requests,
-        resetTime: new Date(userLimit.resetTime).toISOString()
+        resetTime: new Date(userLimit.resetTime).toISOString(),
       });
       return false;
     }
@@ -108,7 +107,7 @@ export class RateLimiter {
 
     return {
       activeUsers: this.limits.size,
-      totalRequests
+      totalRequests,
     };
   }
 }

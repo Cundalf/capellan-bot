@@ -1,7 +1,7 @@
-import { Client, ActivityType } from 'discord.js';
-import { Logger } from '@/utils/logger';
-import { SlashCommandManager } from '../slash-command-manager';
-import { BaseDocumentsLoader } from '../base-documents-loader';
+import { ActivityType, type Client } from 'discord.js';
+import type { Logger } from '@/utils/logger';
+import type { BaseDocumentsLoader } from '../base-documents-loader';
+import type { SlashCommandManager } from '../slash-command-manager';
 
 export class InitializationHandler {
   constructor(
@@ -33,7 +33,7 @@ export class InitializationHandler {
       totalDocuments: totalDocs,
       heresyAnalysis: status.heresyAnalysis.count,
       sermons: status.sermons.count,
-      generalLore: status.generalLore.count
+      generalLore: status.generalLore.count,
     });
   }
 
@@ -45,7 +45,7 @@ export class InitializationHandler {
 
   private setBotActivity(): void {
     this.client.user!.setActivity('🔍 Vigilando por herejía | /help', {
-      type: ActivityType.Watching
+      type: ActivityType.Watching,
     });
   }
 
@@ -58,7 +58,7 @@ export class InitializationHandler {
       guilds: this.client.guilds.cache.size,
       users: this.client.users.cache.size,
       channels: this.client.channels.cache.size,
-      baseDocuments: totalDocs
+      baseDocuments: totalDocs,
     });
   }
 
@@ -68,7 +68,7 @@ export class InitializationHandler {
 
   private handleInitializationError(error: any): void {
     this.logger.error('❌ Error crítico durante la finalización', {
-      error: error?.message || 'Unknown error'
+      error: error?.message || 'Unknown error',
     });
     console.log('\n❌ Bot Capellán falló en la finalización - revisando logs...\n');
     process.exit(1);

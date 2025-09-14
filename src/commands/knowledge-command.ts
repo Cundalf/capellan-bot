@@ -1,11 +1,10 @@
-
-import { Message, EmbedBuilder } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { DocumentProcessor } from '@/services/document-processor';
-import { RAGSystem } from '@/services/rag-system';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import { EmbedBuilder, type Message } from 'discord.js';
+import type { DocumentProcessor } from '@/services/document-processor';
+import type { RAGSystem } from '@/services/rag-system';
+import type { CommandContext } from '@/types';
 import { DISCORD_COLORS, WARHAMMER_CONSTANTS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class KnowledgeCommand extends BaseCommand {
   name = 'agregar';
@@ -26,7 +25,9 @@ export class KnowledgeCommand extends BaseCommand {
     if (!context.isInquisitor) {
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
-        .setDescription('🚫 *Solo un Inquisitor puede agregar conocimiento sagrado a los archivos.*')
+        .setDescription(
+          '🚫 *Solo un Inquisitor puede agregar conocimiento sagrado a los archivos.*'
+        )
         .setFooter({ text: 'Acceso Denegado' });
 
       await message.reply({ embeds: [embed] });
@@ -50,7 +51,11 @@ export class KnowledgeCommand extends BaseCommand {
     await this.handleUrlDownload(message, url, context);
   }
 
-  private async handleUrlDownload(message: Message, url: string, context: CommandContext): Promise<void> {
+  private async handleUrlDownload(
+    message: Message,
+    url: string,
+    context: CommandContext
+  ): Promise<void> {
     // Validate URL format
     try {
       new URL(url);
@@ -63,8 +68,8 @@ export class KnowledgeCommand extends BaseCommand {
     try {
       const urlObj = new URL(url);
       const domain = urlObj.hostname.toLowerCase();
-      
-      const isAllowed = WARHAMMER_CONSTANTS.ALLOWED_DOMAINS.some(allowed => 
+
+      const isAllowed = WARHAMMER_CONSTANTS.ALLOWED_DOMAINS.some((allowed) =>
         domain.includes(allowed.toLowerCase())
       );
 
@@ -72,9 +77,15 @@ export class KnowledgeCommand extends BaseCommand {
         const embed = new EmbedBuilder()
           .setColor(DISCORD_COLORS.RED)
           .setTitle('⛔ Dominio No Autorizado')
-          .setDescription(`*Solo se permiten URLs de dominios sagrados aprobados por la Inquisición.*`)
+          .setDescription(
+            `*Solo se permiten URLs de dominios sagrados aprobados por la Inquisición.*`
+          )
           .addFields(
-            { name: 'Dominios Permitidos', value: WARHAMMER_CONSTANTS.ALLOWED_DOMAINS.join('\n'), inline: false },
+            {
+              name: 'Dominios Permitidos',
+              value: WARHAMMER_CONSTANTS.ALLOWED_DOMAINS.join('\n'),
+              inline: false,
+            },
             { name: 'Dominio Proporcionado', value: domain, inline: false }
           )
           .setFooter({ text: 'Protocolos de Seguridad' });
@@ -89,18 +100,22 @@ export class KnowledgeCommand extends BaseCommand {
 
     const loadingEmbed = new EmbedBuilder()
       .setColor(DISCORD_COLORS.ORANGE)
-      .setDescription('📥 *Descargando conocimiento sagrado...\nEsta operación puede tardar varios minutos.*')
+      .setDescription(
+        '📥 *Descargando conocimiento sagrado...\nEsta operación puede tardar varios minutos.*'
+      )
       .setFooter({ text: 'Procesando...' });
 
     const loadingMsg = await message.reply({ embeds: [loadingEmbed] });
 
     try {
       await this.documentProcessor.downloadAndProcessUrl(url, context.username);
-      
+
       const successEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.GREEN)
         .setTitle('✅ CONOCIMIENTO AGREGADO')
-        .setDescription(`*El conocimiento sagrado de la fuente proporcionada ha sido incorporado a los archivos doctrinales.*`)
+        .setDescription(
+          `*El conocimiento sagrado de la fuente proporcionada ha sido incorporado a los archivos doctrinales.*`
+        )
         .addFields(
           { name: 'Fuente', value: url, inline: false },
           { name: 'Agregado por', value: context.username, inline: true },
@@ -114,34 +129,44 @@ export class KnowledgeCommand extends BaseCommand {
       this.logger.inquisitor('Conocimiento agregado exitosamente', {
         url,
         addedBy: context.username,
-        userId: context.userId
+        userId: context.userId,
+      });
+    } catch (error: any) {
+      this.logger.error('Error adding knowledge', {
+        error: error?.message || 'Unknown error',
+        url,
+        userId: context.userId,
       });
 
-    } catch (error: any) {
-      this.logger.error('Error adding knowledge', { 
-        error: error?.message || 'Unknown error', 
-        url, 
-        userId: context.userId 
-      });
-      
       const errorEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
         .setTitle('❌ ERROR EN DESCARGA')
-        .setDescription(`*Error procesando el conocimiento sagrado:*\n\n\`\`\`${error?.message || 'Unknown error'}\`\`\``)
-        .addFields(
-          { name: 'Posibles Soluciones', value: '• Verificar que la URL sea accesible\n• Comprobar que wkhtmltopdf esté instalado\n• Intentar con una URL diferente', inline: false }
+        .setDescription(
+          `*Error procesando el conocimiento sagrado:*\n\n\`\`\`${error?.message || 'Unknown error'}\`\`\``
         )
+        .addFields({
+          name: 'Posibles Soluciones',
+          value:
+            '• Verificar que la URL sea accesible\n• Comprobar que wkhtmltopdf esté instalado\n• Intentar con una URL diferente',
+          inline: false,
+        })
         .setFooter({ text: 'Operación Fallida' });
 
       await loadingMsg.edit({ embeds: [errorEmbed] });
     }
   }
 
-  private async handleTextInput(message: Message, args: string[], context: CommandContext): Promise<void> {
+  private async handleTextInput(
+    message: Message,
+    args: string[],
+    context: CommandContext
+  ): Promise<void> {
     const textContent = args.join(' ');
-    
+
     if (!textContent || textContent.length < 100) {
-      await message.reply('*Proporciona texto suficiente (mínimo 100 caracteres): `!capellan agregar texto [contenido]`*');
+      await message.reply(
+        '*Proporciona texto suficiente (mínimo 100 caracteres): `!capellan agregar texto [contenido]`*'
+      );
       return;
     }
 
@@ -155,11 +180,13 @@ export class KnowledgeCommand extends BaseCommand {
     try {
       const source = `Texto directo - ${context.username} - ${new Date().toISOString()}`;
       await this.documentProcessor.processTextDocument(textContent, source, context.username);
-      
+
       const successEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.GREEN)
         .setTitle('✅ TEXTO PROCESADO')
-        .setDescription(`*El conocimiento proporcionado ha sido incorporado a los archivos doctrinales.*`)
+        .setDescription(
+          `*El conocimiento proporcionado ha sido incorporado a los archivos doctrinales.*`
+        )
         .addFields(
           { name: 'Caracteres procesados', value: textContent.length.toString(), inline: true },
           { name: 'Agregado por', value: context.username, inline: true },
@@ -173,19 +200,20 @@ export class KnowledgeCommand extends BaseCommand {
       this.logger.inquisitor('Texto procesado exitosamente', {
         textLength: textContent.length,
         addedBy: context.username,
-        userId: context.userId
+        userId: context.userId,
+      });
+    } catch (error: any) {
+      this.logger.error('Error processing text', {
+        error: error?.message || 'Unknown error',
+        userId: context.userId,
       });
 
-    } catch (error: any) {
-      this.logger.error('Error processing text', { 
-        error: error?.message || 'Unknown error', 
-        userId: context.userId 
-      });
-      
       const errorEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
         .setTitle('❌ ERROR PROCESANDO TEXTO')
-        .setDescription(`*Error incorporando el conocimiento:*\n\n\`\`\`${error?.message || 'Unknown error'}\`\`\``)
+        .setDescription(
+          `*Error incorporando el conocimiento:*\n\n\`\`\`${error?.message || 'Unknown error'}\`\`\``
+        )
         .setFooter({ text: 'Operación Fallida' });
 
       await loadingMsg.edit({ embeds: [errorEmbed] });
@@ -198,20 +226,20 @@ export class KnowledgeCommand extends BaseCommand {
       .setTitle('📚 Agregar Conocimiento Sagrado')
       .setDescription('*Comandos para incorporar sabiduría a los archivos imperiales:*')
       .addFields(
-        { 
-          name: '🌐 Descargar URL', 
-          value: '`!capellan agregar [URL]`\nDescarga y procesa una página web', 
-          inline: false 
+        {
+          name: '🌐 Descargar URL',
+          value: '`!capellan agregar [URL]`\nDescarga y procesa una página web',
+          inline: false,
         },
-        { 
-          name: '📄 Texto directo', 
-          value: '`!capellan agregar texto [contenido]`\nProcesa texto proporcionado directamente', 
-          inline: false 
+        {
+          name: '📄 Texto directo',
+          value: '`!capellan agregar texto [contenido]`\nProcesa texto proporcionado directamente',
+          inline: false,
         },
         {
           name: '⚠️ Dominios Permitidos',
           value: WARHAMMER_CONSTANTS.ALLOWED_DOMAINS.join('\n'),
-          inline: false
+          inline: false,
         }
       )
       .setFooter({ text: 'Solo Inquisidores - El Emperador Protege' });

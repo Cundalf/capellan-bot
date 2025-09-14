@@ -1,10 +1,9 @@
-
-import { Message, EmbedBuilder } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { GamificationService } from '@/services/gamification-service';
-import { Logger } from '@/utils/logger';
-import { CommandContext, UserRank } from '@/types';
+import { EmbedBuilder, type Message } from 'discord.js';
+import type { GamificationService } from '@/services/gamification-service';
+import type { CommandContext, UserRank } from '@/types';
 import { DISCORD_COLORS, WARHAMMER_CONSTANTS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class CredoCommand extends BaseCommand {
   name = 'credo';
@@ -29,12 +28,21 @@ export class CredoCommand extends BaseCommand {
 
     if (now - lastTime < cooldownMs) {
       const remainingTime = Math.ceil((cooldownMs - (now - lastTime)) / 60000);
-      await message.reply(`*Has recitado el Credo recientemente. Espera ${remainingTime} minutos para recitarlo nuevamente.*`);
+      await message.reply(
+        `*Has recitado el Credo recientemente. Espera ${remainingTime} minutos para recitarlo nuevamente.*`
+      );
       return;
     }
 
-    const profile = await this.gamificationService.getOrCreateProfile(context.userId, context.username);
-    await this.gamificationService.addPurityPoints(context.userId, 8, 'Recitación del Credo Imperial');
+    const profile = await this.gamificationService.getOrCreateProfile(
+      context.userId,
+      context.username
+    );
+    await this.gamificationService.addPurityPoints(
+      context.userId,
+      8,
+      'Recitación del Credo Imperial'
+    );
     this.lastRecitation.set(context.userId, now);
 
     const credos = [
@@ -50,7 +58,7 @@ export class CredoCommand extends BaseCommand {
 
 *Nunca dudéis. Nunca flaquéis. Nunca temáis.*
 
-*Pues el Emperador está con nosotros.*`
+*Pues el Emperador está con nosotros.*`,
       },
       {
         title: 'Oración del Fiel',
@@ -64,7 +72,7 @@ export class CredoCommand extends BaseCommand {
 
 *Por Tu Fuerza Inmortal somos protegidos.*
 
-*Oh Emperador, extiende Tu Divina Protección sobre nosotros, Tus humildes siervos.*`
+*Oh Emperador, extiende Tu Divina Protección sobre nosotros, Tus humildes siervos.*`,
       },
       {
         title: 'Letanía de la Fe',
@@ -78,7 +86,7 @@ export class CredoCommand extends BaseCommand {
 
 *Malditos sean los herejes que se desvían de Su Sagrado Camino.*
 
-*En Su nombre marchamos. En Su nombre luchamos. En Su nombre morimos.*`
+*En Su nombre marchamos. En Su nombre luchamos. En Su nombre morimos.*`,
       },
       {
         title: 'Oración de Protección',
@@ -94,8 +102,8 @@ export class CredoCommand extends BaseCommand {
 
 *Que Tu Voluntad sea hecha, ahora y por siempre.*
 
-*Ave Imperator!*`
-      }
+*Ave Imperator!*`,
+      },
     ];
 
     const selectedCredo = credos[Math.floor(Math.random() * credos.length)];
@@ -107,7 +115,11 @@ export class CredoCommand extends BaseCommand {
       .addFields(
         { name: '🙏 Recitado por', value: context.username, inline: true },
         { name: '✨ Puntos ganados', value: '+8 Pureza', inline: true },
-        { name: '👁️ Rango actual', value: this.getRankEmoji(profile.rank) + ' ' + profile.rank, inline: true }
+        {
+          name: '👁️ Rango actual',
+          value: this.getRankEmoji(profile.rank) + ' ' + profile.rank,
+          inline: true,
+        }
       )
       .setTimestamp()
       .setFooter({ text: WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.PROTECTION });
@@ -117,21 +129,21 @@ export class CredoCommand extends BaseCommand {
     this.logger.capellan('Credo recited', {
       userId: context.userId,
       credo: selectedCredo.title,
-      newRank: profile.rank
+      newRank: profile.rank,
     });
   }
 
   private getRankEmoji(rank: UserRank): string {
     const rankEmojis: Record<UserRank, string> = {
-      'Herético': '💀',
-      'Sospechoso': '❓',
-      'Ciudadano': '👤',
-      'Fiel': '🙏',
-      'Devoto': '✨',
-      'Piadoso': '👼',
-      'Santo': '😇',
-      'Mártir': '⚡',
-      'Servo del Emperador': '👑'
+      Herético: '💀',
+      Sospechoso: '❓',
+      Ciudadano: '👤',
+      Fiel: '🙏',
+      Devoto: '✨',
+      Piadoso: '👼',
+      Santo: '😇',
+      Mártir: '⚡',
+      'Servo del Emperador': '👑',
     };
     return rankEmojis[rank] || '👤';
   }

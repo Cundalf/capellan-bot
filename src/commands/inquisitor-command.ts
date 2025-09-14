@@ -1,10 +1,9 @@
-
-import { Message, EmbedBuilder } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { InquisitorService } from '@/services/inquisitor-service';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import { EmbedBuilder, type Message } from 'discord.js';
+import type { InquisitorService } from '@/services/inquisitor-service';
+import type { CommandContext } from '@/types';
 import { DISCORD_COLORS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class InquisitorCommand extends BaseCommand {
   name = 'inquisidor';
@@ -43,7 +42,9 @@ export class InquisitorCommand extends BaseCommand {
     if (!context.isInquisitor) {
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
-        .setDescription('🚫 *Solo un Inquisitor tiene autoridad para usar estos comandos, hermano.*')
+        .setDescription(
+          '🚫 *Solo un Inquisitor tiene autoridad para usar estos comandos, hermano.*'
+        )
         .setFooter({ text: 'Acceso Denegado' });
 
       await message.reply({ embeds: [embed] });
@@ -57,7 +58,7 @@ export class InquisitorCommand extends BaseCommand {
       case 'nombrar':
         await this.handleNominate(message, args[1], context);
         break;
-        
+
       case 'revocar':
       case 'destituir':
         await this.handleRevoke(message, args[1], context);
@@ -70,7 +71,7 @@ export class InquisitorCommand extends BaseCommand {
       case 'info':
         await this.handleInfo(message, args[1], context);
         break;
-        
+
       default:
         await this.showHelp(message, context);
     }
@@ -89,19 +90,23 @@ export class InquisitorCommand extends BaseCommand {
       }
 
       await this.inquisitorService.createSupremeInquisitor(context.userId, context.username);
-      
+
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.DARK_RED)
         .setTitle('👑 INQUISIDOR SUPREMO AUTOPROCLAMADO')
-        .setDescription(`*${context.username} ha sido nombrado el primer Inquisidor Supremo por voluntad del Emperador.*\n\n**¡QUE NADIE SE ATREVA A CUESTIONAR SU AUTORIDAD!**`)
+        .setDescription(
+          `*${context.username} ha sido nombrado el primer Inquisidor Supremo por voluntad del Emperador.*\n\n**¡QUE NADIE SE ATREVA A CUESTIONAR SU AUTORIDAD!**`
+        )
         .setTimestamp()
         .setFooter({ text: 'El Emperador Juzga' });
 
       await message.reply({ embeds: [embed] });
-
     } catch (error: any) {
-      this.logger.error('Error in supreme command', { error: error?.message || 'Unknown error', userId: context.userId });
-      
+      this.logger.error('Error in supreme command', {
+        error: error?.message || 'Unknown error',
+        userId: context.userId,
+      });
+
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
         .setDescription(`❌ *Error: ${error?.message || 'Unknown error'}*`)
@@ -111,17 +116,23 @@ export class InquisitorCommand extends BaseCommand {
     }
   }
 
-  private async handleNominate(message: Message, userMention: string, context: CommandContext): Promise<void> {
+  private async handleNominate(
+    message: Message,
+    userMention: string,
+    context: CommandContext
+  ): Promise<void> {
     if (!userMention) {
-      await message.reply('*Debéis especificar a quién nombrar: `!capellan inquisidor nominar @usuario`*');
+      await message.reply(
+        '*Debéis especificar a quién nombrar: `!capellan inquisidor nominar @usuario`*'
+      );
       return;
     }
 
     const userId = this.extractUserIdFromMention(userMention);
-    
+
     try {
       const targetUser = await message.client.users.fetch(userId);
-      
+
       if (this.inquisitorService.isInquisitor(userId)) {
         await message.reply(`*${targetUser.username} ya es un Inquisidor, hermano.*`);
         return;
@@ -132,7 +143,9 @@ export class InquisitorCommand extends BaseCommand {
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.DARK_RED)
         .setTitle('👁️ NUEVO INQUISIDOR NOMBRADO')
-        .setDescription(`*Por decreto de Inquisidor ${context.username}, ${targetUser.username} ha sido elevado al rango de **INQUISIDOR**.*\n\n**Que su vigilancia sea eterna y su juicio implacable.**`)
+        .setDescription(
+          `*Por decreto de Inquisidor ${context.username}, ${targetUser.username} ha sido elevado al rango de **INQUISIDOR**.*\n\n**Que su vigilancia sea eterna y su juicio implacable.**`
+        )
         .addFields(
           { name: 'Autorizado por', value: context.username, inline: true },
           { name: 'Fecha', value: new Date().toLocaleString(), inline: true }
@@ -141,21 +154,30 @@ export class InquisitorCommand extends BaseCommand {
         .setFooter({ text: 'Por la Gloria del Emperador' });
 
       await message.reply({ embeds: [embed] });
-
     } catch (error: any) {
-      this.logger.error('Error nominating inquisitor', { error: error?.message || 'Unknown error', userId, nominatedBy: context.userId });
+      this.logger.error('Error nominating inquisitor', {
+        error: error?.message || 'Unknown error',
+        userId,
+        nominatedBy: context.userId,
+      });
       await message.reply(`*Error: ${error?.message || 'Unknown error'}*`);
     }
   }
 
-  private async handleRevoke(message: Message, userMention: string, context: CommandContext): Promise<void> {
+  private async handleRevoke(
+    message: Message,
+    userMention: string,
+    context: CommandContext
+  ): Promise<void> {
     if (!userMention) {
-      await message.reply('*Debéis especificar a quién destituir: `!capellan inquisidor revocar @usuario`*');
+      await message.reply(
+        '*Debéis especificar a quién destituir: `!capellan inquisidor revocar @usuario`*'
+      );
       return;
     }
 
     const userId = this.extractUserIdFromMention(userMention);
-    
+
     if (userId === context.userId) {
       await message.reply('*No podéis destituiros a vos mismo, hermano.*');
       return;
@@ -163,7 +185,7 @@ export class InquisitorCommand extends BaseCommand {
 
     try {
       const revokedInquisitor = await this.inquisitorService.removeInquisitor(userId);
-      
+
       if (!revokedInquisitor) {
         await message.reply('*Ese usuario no es un Inquisidor.*');
         return;
@@ -172,14 +194,19 @@ export class InquisitorCommand extends BaseCommand {
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.ORANGE)
         .setTitle('⚡ INQUISIDOR DESTITUIDO')
-        .setDescription(`*Por decreto de Inquisidor ${context.username}, ${revokedInquisitor.username} ha sido **DESTITUIDO** de su cargo.*\n\n**Sus privilegios han sido revocados.**`)
+        .setDescription(
+          `*Por decreto de Inquisidor ${context.username}, ${revokedInquisitor.username} ha sido **DESTITUIDO** de su cargo.*\n\n**Sus privilegios han sido revocados.**`
+        )
         .setTimestamp()
         .setFooter({ text: 'Justicia Imperial' });
 
       await message.reply({ embeds: [embed] });
-
     } catch (error: any) {
-      this.logger.error('Error revoking inquisitor', { error: error?.message || 'Unknown error', userId, revokedBy: context.userId });
+      this.logger.error('Error revoking inquisitor', {
+        error: error?.message || 'Unknown error',
+        userId,
+        revokedBy: context.userId,
+      });
       await message.reply(`*Error: ${error?.message || 'Unknown error'}*`);
     }
   }
@@ -197,7 +224,11 @@ export class InquisitorCommand extends BaseCommand {
     await message.reply({ embeds: [embed] });
   }
 
-  private async handlePromote(message: Message, userMention: string, context: CommandContext): Promise<void> {
+  private async handlePromote(
+    message: Message,
+    userMention: string,
+    context: CommandContext
+  ): Promise<void> {
     // Only Supreme Inquisitors can promote others to Supreme
     if (!this.inquisitorService.isSupremeInquisitor(context.userId)) {
       const embed = new EmbedBuilder()
@@ -210,36 +241,45 @@ export class InquisitorCommand extends BaseCommand {
     }
 
     if (!userMention) {
-      await message.reply('*Debéis especificar a quién promover: `!capellan inquisidor promover @usuario`*');
+      await message.reply(
+        '*Debéis especificar a quién promover: `!capellan inquisidor promover @usuario`*'
+      );
       return;
     }
 
     const userId = this.extractUserIdFromMention(userMention);
-    
+
     try {
       await this.inquisitorService.promoteToSupreme(userId, context.username);
-      
+
       const inquisitor = this.inquisitorService.getInquisitor(userId)!;
-      
+
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.GOLD)
         .setTitle('👑 PROMOCIÓN A INQUISIDOR SUPREMO')
-        .setDescription(`*${inquisitor.username} ha sido promovido al rango de **INQUISIDOR SUPREMO** por decreto de ${context.username}.*\n\n**¡Que su autoridad sea absoluta!**`)
+        .setDescription(
+          `*${inquisitor.username} ha sido promovido al rango de **INQUISIDOR SUPREMO** por decreto de ${context.username}.*\n\n**¡Que su autoridad sea absoluta!**`
+        )
         .setTimestamp()
         .setFooter({ text: 'Gloria Imperial' });
 
       await message.reply({ embeds: [embed] });
-
     } catch (error: any) {
-      this.logger.error('Error promoting inquisitor', { error: error?.message || 'Unknown error', userId, promotedBy: context.userId });
+      this.logger.error('Error promoting inquisitor', {
+        error: error?.message || 'Unknown error',
+        userId,
+        promotedBy: context.userId,
+      });
       await message.reply(`*Error: ${error?.message || 'Unknown error'}*`);
     }
   }
 
-  private async handleInfo(message: Message, userMention: string, context: CommandContext): Promise<void> {
-    const userId = userMention 
-      ? this.extractUserIdFromMention(userMention) 
-      : context.userId;
+  private async handleInfo(
+    message: Message,
+    userMention: string,
+    context: CommandContext
+  ): Promise<void> {
+    const userId = userMention ? this.extractUserIdFromMention(userMention) : context.userId;
 
     const inquisitorInfo = this.inquisitorService.formatInquisitorInfo(userId);
 
@@ -268,13 +308,19 @@ export class InquisitorCommand extends BaseCommand {
       );
 
       if (this.inquisitorService.isSupremeInquisitor(context.userId)) {
-        embed.addFields(
-          { name: '👑 Promover', value: '`!capellan inquisidor promover @usuario`', inline: false }
-        );
+        embed.addFields({
+          name: '👑 Promover',
+          value: '`!capellan inquisidor promover @usuario`',
+          inline: false,
+        });
       }
     } else {
       embed.addFields(
-        { name: '🔸 Autoproclamación', value: '`!capellan inquisidor supremo` (solo si no hay Inquisidores)', inline: false },
+        {
+          name: '🔸 Autoproclamación',
+          value: '`!capellan inquisidor supremo` (solo si no hay Inquisidores)',
+          inline: false,
+        },
         { name: '🔸 Lista', value: '`!capellan inquisidor lista`', inline: false }
       );
     }

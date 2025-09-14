@@ -1,20 +1,20 @@
 import { Client, GatewayIntentBits } from 'discord.js';
-import { Logger } from '@/utils/logger';
-import { validateEnvironment, loadConfig } from '@/utils/config';
-import { RAGSystem } from './rag-system';
-import { InquisitorService } from './inquisitor-service';
-import { DocumentProcessor } from './document-processor';
-import { CommandManager } from './command-manager';
-import { SlashCommandManager } from './slash-command-manager';
-import { GamificationService } from './gamification-service';
-import { BaseDocumentsLoader } from './base-documents-loader';
 import { HeresyDetector } from '@/events/heresy-detector';
-import { SteamOffersService } from './steam-offers-service';
-import { SermonService } from './sermon-service';
+import { loadConfig, validateEnvironment } from '@/utils/config';
+import { Logger } from '@/utils/logger';
+import { BaseDocumentsLoader } from './base-documents-loader';
+import { CommandManager } from './command-manager';
+import { DocumentProcessor } from './document-processor';
+import { GamificationService } from './gamification-service';
 import { BotEventHandler } from './handlers/bot-event-handler';
 import { CronJobHandler } from './handlers/cron-job-handler';
 import { InitializationHandler } from './handlers/initialization-handler';
 import { NotificationHandler } from './handlers/notification-handler';
+import { InquisitorService } from './inquisitor-service';
+import { RAGSystem } from './rag-system';
+import { SermonService } from './sermon-service';
+import { SlashCommandManager } from './slash-command-manager';
+import { SteamOffersService } from './steam-offers-service';
 
 export class CapellanBot {
   private client: Client;
@@ -43,8 +43,8 @@ export class CapellanBot {
       intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-      ]
+        GatewayIntentBits.MessageContent,
+      ],
     });
 
     this.initializeServices();
@@ -70,8 +70,17 @@ export class CapellanBot {
       this.documentProcessor,
       this.gamificationService
     );
-    this.slashCommandManager = new SlashCommandManager(this.client, this.logger, this.commandManager);
-    this.heresyDetector = new HeresyDetector(this.logger, this.ragSystem, this.commandManager, this.gamificationService);
+    this.slashCommandManager = new SlashCommandManager(
+      this.client,
+      this.logger,
+      this.commandManager
+    );
+    this.heresyDetector = new HeresyDetector(
+      this.logger,
+      this.ragSystem,
+      this.commandManager,
+      this.gamificationService
+    );
   }
 
   private initializeHandlers(): void {
@@ -136,7 +145,6 @@ export class CapellanBot {
     }
   }
 
-
   async start(): Promise<void> {
     try {
       this.logger.info('Iniciando servicios del Capellán...');
@@ -146,7 +154,6 @@ export class CapellanBot {
 
       this.logger.info('Conectando a Discord...');
       await this.client.login(process.env.DISCORD_TOKEN!);
-
     } catch (error: any) {
       this.logger.error('Failed to start bot', { error: error?.message || 'Unknown error' });
       throw error;
@@ -157,7 +164,7 @@ export class CapellanBot {
     this.logger.info('📝 Inicializando documentos base...');
     await this.baseDocumentsLoader.initializeBaseDocuments();
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const status = await this.baseDocumentsLoader.checkBaseDocumentsStatus();
     const totalDocs = status.heresyAnalysis.count + status.sermons.count + status.generalLore.count;
@@ -167,7 +174,7 @@ export class CapellanBot {
         totalDocuments: totalDocs,
         heresyAnalysis: status.heresyAnalysis.count,
         sermons: status.sermons.count,
-        generalLore: status.generalLore.count
+        generalLore: status.generalLore.count,
       });
     } else {
       this.logger.warn('⚠️  No se encontraron documentos base en la base de datos');
@@ -184,32 +191,34 @@ export class CapellanBot {
       this.logger.info('RAG system initialized', {
         documents: stats.documents,
         embeddings: stats.embeddings,
-        sources: stats.sources.length
+        sources: stats.sources.length,
       });
 
       if (stats.documents === 0) {
-        this.logger.warn('No documents found in RAG system. Inquisitors should add knowledge using !capellan agregar');
+        this.logger.warn(
+          'No documents found in RAG system. Inquisitors should add knowledge using !capellan agregar'
+        );
       }
-
     } catch (error: any) {
-      this.logger.error('RAG system initialization failed', { error: error?.message || 'Unknown error' });
+      this.logger.error('RAG system initialization failed', {
+        error: error?.message || 'Unknown error',
+      });
       throw error;
     }
   }
 
-
   private async shutdown(): Promise<void> {
     this.logger.info('Shutting down Capellan Bot...');
-    
+
     try {
       // Close RAG system
       await this.ragSystem.close();
-      
+
       // Destroy Discord client
       this.client.destroy();
-      
+
       this.logger.capellan('Bot desconectado - El Emperador protege');
-      
+
       process.exit(0);
     } catch (error: any) {
       this.logger.error('Error during shutdown', { error: error?.message || 'Unknown error' });
@@ -244,11 +253,11 @@ export class CapellanBot {
         uptime: this.client.uptime,
         guilds: this.client.guilds.cache.size,
         users: this.client.users.cache.size,
-        channels: this.client.channels.cache.size
+        channels: this.client.channels.cache.size,
       },
       rag: this.ragSystem.getStats(),
       inquisitors: this.inquisitorService.getInquisitorCount(),
-      steamOffers: this.steamOffersService.getStats()
+      steamOffers: this.steamOffersService.getStats(),
     };
   }
 }

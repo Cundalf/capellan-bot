@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { Logger } from '@/utils/logger';
-import { SteamApp, SteamOffer, TrackedOffer, BotConfig, SteamOffersData } from '@/types';
 import { EmbedBuilder } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
+import type { BotConfig, SteamApp, SteamOffer, SteamOffersData, TrackedOffer } from '@/types';
+import type { Logger } from '@/utils/logger';
 
 enum CacheTimeout {
   OFFERS = 30 * 60 * 1000, // 30 minutes
@@ -35,11 +35,11 @@ enum APIConfig {
 }
 
 enum EmbedColor {
-  GOLD = 0xFFD700,
-  RED = 0xFF0000,
-  ORANGE = 0xFF8C00,
-  GREEN = 0x32CD32,
-  BROWN = 0x8B4513,
+  GOLD = 0xffd700,
+  RED = 0xff0000,
+  ORANGE = 0xff8c00,
+  GREEN = 0x32cd32,
+  BROWN = 0x8b4513,
 }
 
 enum SteamCategory {
@@ -63,27 +63,60 @@ export class SteamOffersService {
   private trackedOffersFile: string;
 
   private static readonly WARHAMMER_KEYWORDS = [
-    'warhammer 40k', 'warhammer40k', 'warhammer 40000', 'warhammer40000',
-    'space marine', 'space marines', 'adeptus mechanicus', 'adeptus astartes',
-    'adeptus custodes', 'imperial guard', 'astra militarum', 'chaos space marines',
-    'death korps', 'blood angels', 'dark angels', 'ultramarines', 'iron hands',
-    'salamanders', 'raven guard', 'imperial fists', 'white scars', 'iron warriors',
-    'word bearers', 'night lords', 'world eaters', 'thousand sons', 'death guard',
-    'emperor\'s children', 'alpha legion', 'black legion', 'dawn of war',
-    'battlefleet gothic', 'mechanicus', 'inquisitor', 'vermintide', 'darktide',
-    'total war: warhammer', 'age of sigmar'
+    'warhammer 40k',
+    'warhammer40k',
+    'warhammer 40000',
+    'warhammer40000',
+    'space marine',
+    'space marines',
+    'adeptus mechanicus',
+    'adeptus astartes',
+    'adeptus custodes',
+    'imperial guard',
+    'astra militarum',
+    'chaos space marines',
+    'death korps',
+    'blood angels',
+    'dark angels',
+    'ultramarines',
+    'iron hands',
+    'salamanders',
+    'raven guard',
+    'imperial fists',
+    'white scars',
+    'iron warriors',
+    'word bearers',
+    'night lords',
+    'world eaters',
+    'thousand sons',
+    'death guard',
+    "emperor's children",
+    'alpha legion',
+    'black legion',
+    'dawn of war',
+    'battlefleet gothic',
+    'mechanicus',
+    'inquisitor',
+    'vermintide',
+    'darktide',
+    'total war: warhammer',
+    'age of sigmar',
   ];
 
   private static readonly KNOWN_WARHAMMER_GAMES = [
-    553850, 1971640, 594570, 1142710, 217300, 15620, 286160, 312670,
-    4000, 1295500, 4570, 1458140, 373110, 1361210, 2183900, 386070,
-    375510, 298710
+    553850, 1971640, 594570, 1142710, 217300, 15620, 286160, 312670, 4000, 1295500, 4570, 1458140,
+    373110, 1361210, 2183900, 386070, 375510, 298710,
   ];
 
   private static readonly STEAM_CATEGORIES = [
-    SteamCategory.SPECIALS, SteamCategory.FEATURED_WIN, SteamCategory.GREAT_ON_DECK,
-    SteamCategory.COMING_SOON, SteamCategory.NEW_RELEASES, SteamCategory.TOP_SELLERS,
-    SteamCategory.POPULAR_UPCOMING, SteamCategory.FEATURED_RECOMMENDED
+    SteamCategory.SPECIALS,
+    SteamCategory.FEATURED_WIN,
+    SteamCategory.GREAT_ON_DECK,
+    SteamCategory.COMING_SOON,
+    SteamCategory.NEW_RELEASES,
+    SteamCategory.TOP_SELLERS,
+    SteamCategory.POPULAR_UPCOMING,
+    SteamCategory.FEATURED_RECOMMENDED,
   ];
 
   constructor(logger: Logger, config: BotConfig) {
@@ -98,19 +131,26 @@ export class SteamOffersService {
       if (fs.existsSync(this.trackedOffersFile)) {
         const data = fs.readFileSync(this.trackedOffersFile, 'utf8');
         const parsed = JSON.parse(data);
-        
+
         // Handle both old and new format
         if (parsed.lastCheck && parsed.trackedOffers) {
           // New format
           this.lastCheckTime = parsed.lastCheck;
-          this.trackedOffers = new Map(Object.entries(parsed.trackedOffers).map(([key, value]) => [parseInt(key), value as TrackedOffer]));
+          this.trackedOffers = new Map(
+            Object.entries(parsed.trackedOffers).map(([key, value]) => [
+              parseInt(key),
+              value as TrackedOffer,
+            ])
+          );
         } else {
-          this.trackedOffers = new Map(Object.entries(parsed).map(([key, value]) => [parseInt(key), value as TrackedOffer]));
+          this.trackedOffers = new Map(
+            Object.entries(parsed).map(([key, value]) => [parseInt(key), value as TrackedOffer])
+          );
           this.lastCheckTime = new Date(Date.now() - TimeInterval.DAY).toISOString();
         }
-        
+
         this.logger.info(`Loaded ${this.trackedOffers.size} tracked offers`, {
-          lastCheck: this.lastCheckTime
+          lastCheck: this.lastCheckTime,
         });
       }
     } catch (error: any) {
@@ -124,7 +164,7 @@ export class SteamOffersService {
     try {
       const data: SteamOffersData = {
         lastCheck: this.lastCheckTime,
-        trackedOffers: Object.fromEntries(this.trackedOffers)
+        trackedOffers: Object.fromEntries(this.trackedOffers),
       };
       fs.writeFileSync(this.trackedOffersFile, JSON.stringify(data, null, 2));
     } catch (error: any) {
@@ -135,7 +175,7 @@ export class SteamOffersService {
   async checkForNewOffers(): Promise<SteamOffer[]> {
     try {
       this.logger.info('Checking for new Warhammer Steam offers...');
-      
+
       const allOffers = await this.getWarhammerOffers(true);
       const newOffers: SteamOffer[] = [];
       const now = new Date().toISOString();
@@ -143,13 +183,15 @@ export class SteamOffersService {
 
       // Avoid duplicate notifications immediately after restart
       // If last check was less than 1 hour ago, be more conservative
-      const timeSinceLastCheck = this.lastCheckTime ? Date.now() - new Date(this.lastCheckTime).getTime() : Infinity;
+      const timeSinceLastCheck = this.lastCheckTime
+        ? Date.now() - new Date(this.lastCheckTime).getTime()
+        : Infinity;
       const isRecentRestart = timeSinceLastCheck < TimeInterval.RECENT_RESTART_THRESHOLD;
 
       this.logger.debug('Check timing info', {
         previousCheck: previousCheckTime,
         timeSinceLastCheck: timeSinceLastCheck / (60 * 1000), // minutes
-        isRecentRestart
+        isRecentRestart,
       });
 
       for (const offer of allOffers) {
@@ -159,7 +201,7 @@ export class SteamOffersService {
         }
 
         const tracked = this.trackedOffers.get(offer.appid);
-        
+
         if (!tracked) {
           // New offer - but be conservative if this is a recent restart
           if (isRecentRestart) {
@@ -172,11 +214,11 @@ export class SteamOffersService {
               currency: offer.currency,
               firstSeen: now,
               lastNotified: now, // Mark as notified to prevent immediate notification
-              notificationCount: 1
+              notificationCount: 1,
             });
-            this.logger.info('New Warhammer offer detected but skipped due to recent restart', { 
-              name: offer.name, 
-              discount: offer.discountPercent 
+            this.logger.info('New Warhammer offer detected but skipped due to recent restart', {
+              name: offer.name,
+              discount: offer.discountPercent,
             });
           } else {
             // Normal new offer
@@ -187,12 +229,12 @@ export class SteamOffersService {
               finalPrice: offer.finalPrice,
               currency: offer.currency,
               firstSeen: now,
-              notificationCount: 0
+              notificationCount: 0,
             });
             newOffers.push(offer);
-            this.logger.info('New Warhammer offer detected', { 
-              name: offer.name, 
-              discount: offer.discountPercent 
+            this.logger.info('New Warhammer offer detected', {
+              name: offer.name,
+              discount: offer.discountPercent,
             });
           }
         } else {
@@ -201,15 +243,15 @@ export class SteamOffersService {
           const lastNotified = tracked.lastNotified ? new Date(tracked.lastNotified).getTime() : 0;
           const timeSinceLastNotified = Date.now() - lastNotified;
           const hoursSinceNotified = timeSinceLastNotified / (60 * 60 * 1000);
-          
+
           if (discountIncrease >= 5 && tracked.notificationCount < 2 && hoursSinceNotified > 6) {
             newOffers.push(offer);
             tracked.discountPercent = offer.discountPercent;
             tracked.finalPrice = offer.finalPrice;
-            this.logger.info('Warhammer offer discount increased', { 
-              name: offer.name, 
+            this.logger.info('Warhammer offer discount increased', {
+              name: offer.name,
               oldDiscount: tracked.discountPercent,
-              newDiscount: offer.discountPercent 
+              newDiscount: offer.discountPercent,
             });
           }
         }
@@ -217,10 +259,10 @@ export class SteamOffersService {
 
       // Clean up old tracked offers (remove those not found in current check)
       this.cleanupOldOffers(allOffers);
-      
+
       // Update last check time
       this.lastCheckTime = now;
-      
+
       // Always save to persist the lastCheckTime
       this.saveTrackedOffers();
 
@@ -228,11 +270,10 @@ export class SteamOffersService {
         totalOffers: allOffers.length,
         newOffers: newOffers.length,
         isRecentRestart,
-        timeSinceLastCheck: timeSinceLastCheck / (60 * 1000) // minutes
+        timeSinceLastCheck: timeSinceLastCheck / (60 * 1000), // minutes
       });
 
       return newOffers;
-
     } catch (error: any) {
       this.logger.error('Error checking for new offers:', error?.message || 'Unknown error');
       return [];
@@ -244,13 +285,15 @@ export class SteamOffersService {
     const lastNotified = tracked.lastNotified ? new Date(tracked.lastNotified).getTime() : 0;
     const timeSinceLastNotified = Date.now() - lastNotified;
 
-    return discountIncrease >= DiscountThreshold.SIGNIFICANT_INCREASE &&
-           tracked.notificationCount < NotificationLimit.MAX_PER_OFFER &&
-           timeSinceLastNotified > TimeInterval.MIN_NOTIFICATION_INTERVAL;
+    return (
+      discountIncrease >= DiscountThreshold.SIGNIFICANT_INCREASE &&
+      tracked.notificationCount < NotificationLimit.MAX_PER_OFFER &&
+      timeSinceLastNotified > TimeInterval.MIN_NOTIFICATION_INTERVAL
+    );
   }
 
   private cleanupOldOffers(currentOffers: SteamOffer[]): void {
-    const currentAppIds = new Set(currentOffers.map(offer => offer.appid));
+    const currentAppIds = new Set(currentOffers.map((offer) => offer.appid));
     const toRemove: number[] = [];
 
     for (const [appId, tracked] of this.trackedOffers) {
@@ -269,29 +312,36 @@ export class SteamOffersService {
 
   async getWarhammerOffers(forceRefresh: boolean = false): Promise<SteamOffer[]> {
     const now = Date.now();
-    
-    if (!forceRefresh && this.cachedOffers.length > 0 && (now - this.lastFetchTime) < CacheTimeout.OFFERS) {
-      this.logger.debug('Returning cached Warhammer offers', { 
+
+    if (
+      !forceRefresh &&
+      this.cachedOffers.length > 0 &&
+      now - this.lastFetchTime < CacheTimeout.OFFERS
+    ) {
+      this.logger.debug('Returning cached Warhammer offers', {
         cachedCount: this.cachedOffers.length,
-        cacheAge: Math.round((now - this.lastFetchTime) / 1000 / 60)
+        cacheAge: Math.round((now - this.lastFetchTime) / 1000 / 60),
       });
       return this.cachedOffers;
     }
 
     try {
       this.logger.info('Fetching fresh Steam offers...');
-      
+
       // Get featured games (which often include sales)
-      const featuredResponse = await axios.get('https://store.steampowered.com/api/featuredcategories', {
-        timeout: APIConfig.TIMEOUT
-      });
+      const featuredResponse = await axios.get(
+        'https://store.steampowered.com/api/featuredcategories',
+        {
+          timeout: APIConfig.TIMEOUT,
+        }
+      );
 
       const featuredData = featuredResponse.data;
       const appIds = new Set<number>();
 
       const categories = SteamOffersService.STEAM_CATEGORIES;
 
-      categories.forEach(category => {
+      categories.forEach((category) => {
         if (featuredData[category]?.items) {
           featuredData[category].items.forEach((item: any) => {
             if (item.id) appIds.add(item.id);
@@ -308,12 +358,13 @@ export class SteamOffersService {
         top_sellers: featuredData.top_sellers?.items?.length || 0,
         popular_upcoming: featuredData.popular_upcoming?.items?.length || 0,
         featured_recommended: featuredData.featured_recommended?.items?.length || 0,
-        totalUnique: appIds.size
+        totalUnique: appIds.size,
       });
 
-
-      SteamOffersService.KNOWN_WARHAMMER_GAMES.forEach(id => appIds.add(id));
-      this.logger.debug(`Added ${SteamOffersService.KNOWN_WARHAMMER_GAMES.length} known Warhammer games to check`);
+      SteamOffersService.KNOWN_WARHAMMER_GAMES.forEach((id) => appIds.add(id));
+      this.logger.debug(
+        `Added ${SteamOffersService.KNOWN_WARHAMMER_GAMES.length} known Warhammer games to check`
+      );
 
       this.logger.info(`Found ${appIds.size} total games, checking for Warhammer content...`);
 
@@ -325,14 +376,17 @@ export class SteamOffersService {
         const batchOffers = await this.processBatch(batch);
         offers.push(...batchOffers);
 
-        this.logger.debug(`Processed batch ${Math.floor(i / APIConfig.BATCH_SIZE) + 1}/${Math.ceil(appIdArray.length / APIConfig.BATCH_SIZE)}`, {
-          batchSize: batch.length,
-          offersFound: batchOffers.length,
-          totalOffersFound: offers.length
-        });
+        this.logger.debug(
+          `Processed batch ${Math.floor(i / APIConfig.BATCH_SIZE) + 1}/${Math.ceil(appIdArray.length / APIConfig.BATCH_SIZE)}`,
+          {
+            batchSize: batch.length,
+            offersFound: batchOffers.length,
+            totalOffersFound: offers.length,
+          }
+        );
 
         if (i + APIConfig.BATCH_SIZE < appIdArray.length) {
-          await new Promise(resolve => setTimeout(resolve, APIConfig.BATCH_DELAY));
+          await new Promise((resolve) => setTimeout(resolve, APIConfig.BATCH_DELAY));
         }
       }
 
@@ -341,16 +395,15 @@ export class SteamOffersService {
 
       this.logger.info(`Found ${offers.length} Warhammer-related offers`);
       return offers;
-
     } catch (error: any) {
       this.logger.error('Error fetching Steam offers:', error?.message || 'Unknown error');
-      
+
       // Return cached offers if available
       if (this.cachedOffers.length > 0) {
         this.logger.warn('Returning cached offers due to fetch error');
         return this.cachedOffers;
       }
-      
+
       return [];
     }
   }
@@ -365,19 +418,21 @@ export class SteamOffersService {
         if (appDetails) {
           const isWarhammer = this.isWarhammerRelated(appDetails);
           const hasDiscount = this.hasDiscount(appDetails);
-          
+
           this.logger.debug(`Processing app ${appId}: ${appDetails.name}`, {
             appId,
             name: appDetails.name,
             isWarhammer,
             hasDiscount,
-            discountPercent: appDetails.price_overview?.discount_percent || 0
+            discountPercent: appDetails.price_overview?.discount_percent || 0,
           });
-          
+
           if (isWarhammer && hasDiscount) {
             const offer = this.createOffer(appDetails);
             if (offer) {
-              this.logger.info(`Found Warhammer offer: ${appDetails.name} (${offer.discountPercent}% off)`);
+              this.logger.info(
+                `Found Warhammer offer: ${appDetails.name} (${offer.discountPercent}% off)`
+              );
               return offer;
             }
           }
@@ -400,7 +455,7 @@ export class SteamOffersService {
     try {
       const response = await axios.get(`https://store.steampowered.com/api/appdetails`, {
         params: { appids: appId },
-        timeout: APIConfig.DETAILS_TIMEOUT
+        timeout: APIConfig.DETAILS_TIMEOUT,
       });
 
       const data = response.data;
@@ -410,10 +465,13 @@ export class SteamOffersService {
         appData.appid = appId;
         return appData as SteamApp;
       }
-      
+
       return null;
     } catch (error: any) {
-      this.logger.debug(`Failed to get details for app ${appId}:`, error?.message || 'Unknown error');
+      this.logger.debug(
+        `Failed to get details for app ${appId}:`,
+        error?.message || 'Unknown error'
+      );
       return null;
     }
   }
@@ -424,14 +482,15 @@ export class SteamOffersService {
       app.short_description || '',
       ...(app.developers || []),
       ...(app.publishers || []),
-      ...(app.genres?.map(g => g.description) || []),
-      ...(app.categories?.map(c => c.description) || [])
-    ].join(' ').toLowerCase();
+      ...(app.genres?.map((g) => g.description) || []),
+      ...(app.categories?.map((c) => c.description) || []),
+    ]
+      .join(' ')
+      .toLowerCase();
 
-    const matches = SteamOffersService.WARHAMMER_KEYWORDS.filter(keyword =>
+    const matches = SteamOffersService.WARHAMMER_KEYWORDS.filter((keyword) =>
       searchText.includes(keyword.toLowerCase())
     );
-
 
     return matches.length > 0;
   }
@@ -456,9 +515,8 @@ export class SteamOffersService {
       releaseDate: app.release_date?.date,
       shortDescription: app.short_description,
       isWarhammerRelated: true,
-      steamUrl: `https://store.steampowered.com/app/${app.appid}/`
+      steamUrl: `https://store.steampowered.com/app/${app.appid}/`,
     };
-
 
     return offer;
   }
@@ -469,11 +527,13 @@ export class SteamOffersService {
     if (offers.length === 0) {
       const embed = new EmbedBuilder()
         .setTitle('🛡️ Vigilancia del Emperador')
-        .setDescription('No se han detectado nuevas ofertas de Warhammer en este momento, hermano.\n\nMantén la vigilancia, pues las oportunidades pueden aparecer cuando menos las esperes.')
-        .setColor(0x8B4513)
+        .setDescription(
+          'No se han detectado nuevas ofertas de Warhammer en este momento, hermano.\n\nMantén la vigilancia, pues las oportunidades pueden aparecer cuando menos las esperes.'
+        )
+        .setColor(0x8b4513)
         .setTimestamp()
         .setFooter({ text: 'Por el Emperador' });
-      
+
       embeds.push(embed);
       return embeds;
     }
@@ -481,8 +541,10 @@ export class SteamOffersService {
     // Main announcement embed
     const mainEmbed = new EmbedBuilder()
       .setTitle('⚔️ ¡OFERTAS DEL EMPERADOR EN STEAM! ⚔️')
-      .setDescription(`🔥 **${offers.length} ofertas de Warhammer detectadas**\n\n*El Emperador bendice a sus fieles con descuentos en su arsenal digital.*`)
-      .setColor(0xFFD700)
+      .setDescription(
+        `🔥 **${offers.length} ofertas de Warhammer detectadas**\n\n*El Emperador bendice a sus fieles con descuentos en su arsenal digital.*`
+      )
+      .setColor(0xffd700)
       .setTimestamp()
       .setFooter({ text: 'Steam • Por la Gloria del Emperador' });
 
@@ -492,32 +554,37 @@ export class SteamOffersService {
     const maxEmbeds = Math.min(offers.length, 4); // 1 main + 4 offers = 5 total
     for (let i = 0; i < maxEmbeds; i++) {
       const offer = offers[i];
-      
+
       const embed = new EmbedBuilder()
         .setTitle(offer.name)
         .setURL(offer.steamUrl)
-        .setColor(offer.discountPercent >= 50 ? 0xFF0000 : offer.discountPercent >= 25 ? 0xFF8C00 : 0x32CD32)
+        .setColor(
+          offer.discountPercent >= 50 ? 0xff0000 : offer.discountPercent >= 25 ? 0xff8c00 : 0x32cd32
+        )
         .addFields(
-          { 
-            name: '💰 Precio', 
-            value: `~~${offer.originalPrice}~~ **${offer.finalPrice}**`, 
-            inline: true 
+          {
+            name: '💰 Precio',
+            value: `~~${offer.originalPrice}~~ **${offer.finalPrice}**`,
+            inline: true,
           },
-          { 
-            name: '🔥 Descuento', 
-            value: `**${offer.discountPercent}%**`, 
-            inline: true 
+          {
+            name: '🔥 Descuento',
+            value: `**${offer.discountPercent}%**`,
+            inline: true,
           },
-          { 
-            name: '💱 Moneda', 
-            value: offer.currency, 
-            inline: true 
+          {
+            name: '💱 Moneda',
+            value: offer.currency,
+            inline: true,
           }
         )
         .setTimestamp();
 
       if (offer.shortDescription) {
-        embed.setDescription(offer.shortDescription.substring(0, 200) + (offer.shortDescription.length > 200 ? '...' : ''));
+        embed.setDescription(
+          offer.shortDescription.substring(0, 200) +
+            (offer.shortDescription.length > 200 ? '...' : '')
+        );
       }
 
       if (offer.headerImage) {
@@ -525,7 +592,11 @@ export class SteamOffersService {
       }
 
       if (offer.releaseDate) {
-        embed.addFields({ name: '📅 Fecha de lanzamiento', value: offer.releaseDate, inline: true });
+        embed.addFields({
+          name: '📅 Fecha de lanzamiento',
+          value: offer.releaseDate,
+          inline: true,
+        });
       }
 
       // Add thematic footer based on discount
@@ -537,7 +608,7 @@ export class SteamOffersService {
       } else if (offer.discountPercent >= 25) {
         footerText = '🛡️ El Emperador bendice este descuento';
       }
-      
+
       embed.setFooter({ text: footerText });
       embeds.push(embed);
     }
@@ -547,12 +618,15 @@ export class SteamOffersService {
       const remainingCount = offers.length - maxEmbeds;
       const summaryEmbed = new EmbedBuilder()
         .setTitle(`📜 Y ${remainingCount} ofertas más...`)
-        .setDescription(offers.slice(maxEmbeds).map(offer => 
-          `• **${offer.name}** - ${offer.discountPercent}% (${offer.finalPrice})`
-        ).join('\n'))
-        .setColor(0x8B4513)
+        .setDescription(
+          offers
+            .slice(maxEmbeds)
+            .map((offer) => `• **${offer.name}** - ${offer.discountPercent}% (${offer.finalPrice})`)
+            .join('\n')
+        )
+        .setColor(0x8b4513)
         .setFooter({ text: '🔍 Busca en Steam para ver todas las ofertas' });
-      
+
       embeds.push(summaryEmbed);
     }
 
@@ -561,7 +635,7 @@ export class SteamOffersService {
 
   markOffersAsNotified(offers: SteamOffer[]): void {
     const now = new Date().toISOString();
-    
+
     for (const offer of offers) {
       const tracked = this.trackedOffers.get(offer.appid);
       if (tracked) {
@@ -569,13 +643,15 @@ export class SteamOffersService {
         tracked.notificationCount += 1;
       }
     }
-    
+
     this.saveTrackedOffers();
   }
 
   getStats() {
-    const timeSinceLastCheck = this.lastCheckTime ? (Date.now() - new Date(this.lastCheckTime).getTime()) / (60 * 1000) : null;
-    
+    const timeSinceLastCheck = this.lastCheckTime
+      ? (Date.now() - new Date(this.lastCheckTime).getTime()) / (60 * 1000)
+      : null;
+
     return {
       cachedOffers: this.cachedOffers.length,
       trackedOffers: this.trackedOffers.size,
@@ -586,8 +662,8 @@ export class SteamOffersService {
       config: {
         channelId: this.config.steamOffersChannelId,
         checkInterval: this.config.steamOffersCheckInterval,
-        minDiscount: this.config.minDiscountPercent
-      }
+        minDiscount: this.config.minDiscountPercent,
+      },
     };
   }
 }

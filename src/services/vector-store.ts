@@ -1,10 +1,9 @@
-
 import { Database } from 'bun:sqlite';
 import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
-import { Logger } from '@/utils/logger';
+import type { RAGStats, SearchResult, VectorDocument } from '@/types';
 import { loadConfig } from '@/utils/config';
-import { VectorDocument, SearchResult, RAGStats } from '@/types';
+import type { Logger } from '@/utils/logger';
 
 export class VectorStore {
   private db!: Database;
@@ -64,7 +63,9 @@ export class VectorStore {
     this.runMigrations();
 
     // Create indexes
-    this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents(json_extract(metadata, "$.source"))');
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents(json_extract(metadata, "$.source"))'
+    );
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_chunk ON documents(chunk_index)');
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_collection ON documents(collection)');
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_documents_is_base ON documents(is_base_document)');
@@ -73,9 +74,9 @@ export class VectorStore {
   private runMigrations() {
     try {
       // Check if collection column exists
-      const tableInfo = this.db.prepare("PRAGMA table_info(documents)").all() as any[];
-      const hasCollectionColumn = tableInfo.some(col => col.name === 'collection');
-      const hasIsBaseDocumentColumn = tableInfo.some(col => col.name === 'is_base_document');
+      const tableInfo = this.db.prepare('PRAGMA table_info(documents)').all() as any[];
+      const hasCollectionColumn = tableInfo.some((col) => col.name === 'collection');
+      const hasIsBaseDocumentColumn = tableInfo.some((col) => col.name === 'is_base_document');
 
       if (!hasCollectionColumn) {
         this.db.exec('ALTER TABLE documents ADD COLUMN collection TEXT DEFAULT "user"');
@@ -92,7 +93,11 @@ export class VectorStore {
     }
   }
 
-  async addDocument(document: VectorDocument, collection: string = 'user', isBaseDocument: boolean = false): Promise<void> {
+  async addDocument(
+    document: VectorDocument,
+    collection: string = 'user',
+    isBaseDocument: boolean = false
+  ): Promise<void> {
     const insertDoc = this.db.prepare(`
       INSERT OR REPLACE INTO documents (id, content, metadata, chunk_index, collection, is_base_document)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -113,31 +118,32 @@ export class VectorStore {
         isBaseDocument ? 1 : 0
       );
 
-      insertVector.run(
-        document.id,
-        JSON.stringify(document.embedding)
-      );
+      insertVector.run(document.id, JSON.stringify(document.embedding));
 
       // Force database sync
       this.db.exec('PRAGMA synchronous = FULL');
 
-      this.logger.debug('Document added to vector store', { 
-        id: document.id, 
+      this.logger.debug('Document added to vector store', {
+        id: document.id,
         source: document.metadata.source,
         chunkIndex: document.chunkIndex,
         collection,
-        isBaseDocument
+        isBaseDocument,
       });
     } catch (error: any) {
-      this.logger.error('Failed to add document to vector store', { 
-        error: error.message, 
-        documentId: document.id 
+      this.logger.error('Failed to add document to vector store', {
+        error: error.message,
+        documentId: document.id,
       });
       throw error;
     }
   }
 
-  async addDocuments(documents: VectorDocument[], collection: string = 'user', isBaseDocument: boolean = false): Promise<void> {
+  async addDocuments(
+    documents: VectorDocument[],
+    collection: string = 'user',
+    isBaseDocument: boolean = false
+  ): Promise<void> {
     const insertDoc = this.db.prepare(`
       INSERT OR REPLACE INTO documents (id, content, metadata, chunk_index, collection, is_base_document)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -162,50 +168,57 @@ export class VectorStore {
             isBaseDocument ? 1 : 0
           );
 
-          insertVector.run(
-            document.id,
-            JSON.stringify(document.embedding)
-          );
-          
+          insertVector.run(document.id, JSON.stringify(document.embedding));
+
           successCount++;
         } catch (docError: any) {
-          this.logger.error('Failed to insert individual document', { 
-            error: docError.message, 
-            documentId: document.id 
+          this.logger.error('Failed to insert individual document', {
+            error: docError.message,
+            documentId: document.id,
           });
         }
       }
 
       // Force database sync
       this.db.exec('PRAGMA synchronous = FULL');
-      
-      this.logger.info('Batch documents added to vector store', { 
-        count: documents.length, 
+
+      this.logger.info('Batch documents added to vector store', {
+        count: documents.length,
         successCount,
-        collection, 
-        isBaseDocument 
+        collection,
+        isBaseDocument,
       });
 
       // Immediate verification
-      const verifyCount = this.db.prepare('SELECT COUNT(*) as count FROM documents WHERE collection = ? AND is_base_document = ?').get(collection, isBaseDocument ? 1 : 0) as { count: number };
-      this.logger.debug('Documents verification after batch insert', { 
-        collection, 
-        isBaseDocument, 
+      const verifyCount = this.db
+        .prepare(
+          'SELECT COUNT(*) as count FROM documents WHERE collection = ? AND is_base_document = ?'
+        )
+        .get(collection, isBaseDocument ? 1 : 0) as { count: number };
+      this.logger.debug('Documents verification after batch insert', {
+        collection,
+        isBaseDocument,
         expectedCount: documents.length,
         actualCount: verifyCount.count,
-        totalDocsInDB: this.db.prepare('SELECT COUNT(*) as count FROM documents').get() as { count: number }
+        totalDocsInDB: this.db.prepare('SELECT COUNT(*) as count FROM documents').get() as {
+          count: number;
+        },
       });
-
     } catch (error: any) {
-      this.logger.error('Failed to add documents batch to vector store', { 
-        error: error.message, 
-        count: documents.length 
+      this.logger.error('Failed to add documents batch to vector store', {
+        error: error.message,
+        count: documents.length,
       });
       throw error;
     }
   }
 
-  async searchSimilar(queryEmbedding: number[], limit: number = 5, threshold: number = 0.7, collections?: string[]): Promise<SearchResult[]> {
+  async searchSimilar(
+    queryEmbedding: number[],
+    limit: number = 5,
+    threshold: number = 0.7,
+    collections?: string[]
+  ): Promise<SearchResult[]> {
     try {
       // Build query with collection filter if specified
       let searchQuery = `
@@ -221,7 +234,7 @@ export class VectorStore {
       `;
 
       const queryParams: any[] = [];
-      
+
       if (collections && collections.length > 0) {
         const placeholders = collections.map(() => '?').join(',');
         searchQuery += ` WHERE d.collection IN (${placeholders})`;
@@ -240,16 +253,16 @@ export class VectorStore {
             content: row.content,
             embedding: queryEmbedding, // We don't need to return the full embedding
             metadata: JSON.parse(row.metadata),
-            chunkIndex: row.chunk_index
+            chunkIndex: row.chunk_index,
           },
           similarity,
-          source: JSON.parse(row.metadata).source
+          source: JSON.parse(row.metadata).source,
         };
       });
 
       // Filter by threshold and sort by similarity
       return similarities
-        .filter(result => result.similarity >= threshold)
+        .filter((result) => result.similarity >= threshold)
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, limit);
     } catch (error: any) {
@@ -320,19 +333,25 @@ export class VectorStore {
 
   getStats(): RAGStats {
     try {
-      const documentsCount = this.db.prepare('SELECT COUNT(*) as count FROM documents').get() as { count: number };
-      const sourcesResult = this.db.prepare(`
+      const documentsCount = this.db.prepare('SELECT COUNT(*) as count FROM documents').get() as {
+        count: number;
+      };
+      const sourcesResult = this.db
+        .prepare(`
         SELECT DISTINCT json_extract(metadata, '$.source') as source 
         FROM documents
-      `).all() as { source: string }[];
+      `)
+        .all() as { source: string }[];
 
-      const typesResult = this.db.prepare(`
+      const typesResult = this.db
+        .prepare(`
         SELECT 
           json_extract(metadata, '$.type') as type,
           COUNT(*) as count
         FROM documents
         GROUP BY json_extract(metadata, '$.type')
-      `).all() as { type: string; count: number }[];
+      `)
+        .all() as { type: string; count: number }[];
 
       const types: Record<string, number> = {};
       for (const typeRow of typesResult) {
@@ -342,8 +361,8 @@ export class VectorStore {
       return {
         documents: documentsCount.count,
         embeddings: documentsCount.count, // Each document has one embedding
-        sources: sourcesResult.map(s => s.source),
-        types
+        sources: sourcesResult.map((s) => s.source),
+        types,
       };
     } catch (error: any) {
       this.logger.error('Failed to get vector store stats', { error: error.message });
@@ -351,7 +370,7 @@ export class VectorStore {
         documents: 0,
         embeddings: 0,
         sources: [],
-        types: {}
+        types: {},
       };
     }
   }
@@ -365,9 +384,10 @@ export class VectorStore {
   async hasBaseDocuments(collection?: string): Promise<boolean> {
     try {
       // Check for both possible boolean representations
-      let query = 'SELECT COUNT(*) as count FROM documents WHERE (is_base_document = 1 OR is_base_document = true)';
+      let query =
+        'SELECT COUNT(*) as count FROM documents WHERE (is_base_document = 1 OR is_base_document = true)';
       const params: any[] = [];
-      
+
       if (collection) {
         query += ' AND collection = ?';
         params.push(collection);
@@ -375,15 +395,15 @@ export class VectorStore {
 
       const result = this.db.prepare(query).get(...params) as { count: number };
       const hasBaseDocuments = result.count > 0;
-      
+
       // Debug logging
       this.logger.debug(`Checking base documents for collection: ${collection || 'all'}`, {
         query,
         params,
         count: result.count,
-        hasBaseDocuments
+        hasBaseDocuments,
       });
-      
+
       return hasBaseDocuments;
     } catch (error: any) {
       this.logger.error('Failed to check for base documents', { error: error.message });
@@ -394,8 +414,10 @@ export class VectorStore {
   // Get all available collections
   async getCollections(): Promise<string[]> {
     try {
-      const results = this.db.prepare('SELECT DISTINCT collection FROM documents').all() as { collection: string }[];
-      return results.map(r => r.collection);
+      const results = this.db.prepare('SELECT DISTINCT collection FROM documents').all() as {
+        collection: string;
+      }[];
+      return results.map((r) => r.collection);
     } catch (error: any) {
       this.logger.error('Failed to get collections', { error: error.message });
       return [];
@@ -426,25 +448,31 @@ export class VectorStore {
   // Get stats for a specific collection
   getCollectionStats(collection: string): { documents: number; sources: string[] } {
     try {
-      const documentsCount = this.db.prepare('SELECT COUNT(*) as count FROM documents WHERE collection = ?').get(collection) as { count: number };
-      const sourcesResult = this.db.prepare(`
+      const documentsCount = this.db
+        .prepare('SELECT COUNT(*) as count FROM documents WHERE collection = ?')
+        .get(collection) as { count: number };
+      const sourcesResult = this.db
+        .prepare(`
         SELECT DISTINCT json_extract(metadata, '$.source') as source 
         FROM documents 
         WHERE collection = ?
-      `).all(collection) as { source: string }[];
+      `)
+        .all(collection) as { source: string }[];
 
       const stats = {
         documents: documentsCount.count,
-        sources: sourcesResult.map(s => s.source)
+        sources: sourcesResult.map((s) => s.source),
       };
 
       // Debug logging for timing issues
       if (collection && stats.documents === 0) {
-        const allDocs = this.db.prepare('SELECT COUNT(*) as count FROM documents').get() as { count: number };
-        this.logger.debug(`Collection stats check`, { 
-          collection, 
-          collectionCount: stats.documents, 
-          totalDocsInDB: allDocs.count 
+        const allDocs = this.db.prepare('SELECT COUNT(*) as count FROM documents').get() as {
+          count: number;
+        };
+        this.logger.debug(`Collection stats check`, {
+          collection,
+          collectionCount: stats.documents,
+          totalDocsInDB: allDocs.count,
         });
       }
 

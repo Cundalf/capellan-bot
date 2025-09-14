@@ -1,8 +1,8 @@
-import { Logger } from '@/utils/logger';
-import { RAGSystem } from './rag-system';
-import { SermonData, SermonResult } from '@/types';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { SermonData, SermonResult } from '@/types';
+import type { Logger } from '@/utils/logger';
+import type { RAGSystem } from './rag-system';
 
 export class SermonService {
   private logger: Logger;
@@ -41,12 +41,14 @@ export class SermonService {
         'La protección de los inocentes bajo Su gracia',
         'El poder purificador de la fe verdadera',
         'Los guardianes silenciosos de nuestro destino',
-        'La esperanza que arde en la oscuridad del vacío'
+        'La esperanza que arde en la oscuridad del vacío',
       ];
 
       // Select today's topic based on date to ensure variety
       const today = new Date();
-      const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (24 * 60 * 60 * 1000));
+      const dayOfYear = Math.floor(
+        (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (24 * 60 * 60 * 1000)
+      );
       const selectedTopic = sermonTopics[dayOfYear % sermonTopics.length];
 
       this.logger.debug('Selected sermon topic', { topic: selectedTopic, dayOfYear });
@@ -71,11 +73,10 @@ ${baseSermon}
       this.logger.info('Daily sermon generated successfully', {
         topic: selectedTopic,
         tokensUsed: ragResponse.tokensUsed,
-        sourcesUsed: ragResponse.sources.length
+        sourcesUsed: ragResponse.sources.length,
       });
 
       return { sermon: fullSermon, topic: selectedTopic };
-
     } catch (error: any) {
       this.logger.error('Failed to generate daily sermon', { error: error.message });
 
@@ -107,7 +108,7 @@ En la oscuridad del vacío, cuando los demonios susurran y los herejes conspiran
     // Default data
     return {
       lastSermonDate: '1900-01-01',
-      sermonsSent: 0
+      sermonsSent: 0,
     };
   }
 
@@ -141,7 +142,7 @@ En la oscuridad del vacío, cuando los demonios susurran y los herejes conspiran
     this.logger.info('Sermon marked as sent for today', {
       date: today,
       totalSermonsSent: data.sermonsSent,
-      topic
+      topic,
     });
   }
 

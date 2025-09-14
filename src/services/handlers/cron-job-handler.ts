@@ -1,8 +1,8 @@
 import cron from 'node-cron';
-import { Logger } from '@/utils/logger';
-import { BotConfig } from '@/types/index';
-import { GamificationService } from '../gamification-service';
-import { InquisitorService } from '../inquisitor-service';
+import type { BotConfig } from '@/types/index';
+import type { Logger } from '@/utils/logger';
+import type { GamificationService } from '../gamification-service';
+import type { InquisitorService } from '../inquisitor-service';
 
 export class CronJobHandler {
   constructor(
@@ -43,7 +43,7 @@ export class CronJobHandler {
         await this.inquisitorService.createBackup();
       } catch (error: any) {
         this.logger.error('Weekly backup failed', {
-          error: error?.message || 'Unknown error'
+          error: error?.message || 'Unknown error',
         });
       }
     });
@@ -64,7 +64,7 @@ export class CronJobHandler {
       dailySermon: '19:40 daily',
       sermonChannel: this.config.sermonChannelId || 'NOT CONFIGURED',
       steamOffersInterval: `Every ${this.config.steamOffersCheckInterval} hours`,
-      steamOffersChannel: this.config.steamOffersChannelId || 'NOT CONFIGURED'
+      steamOffersChannel: this.config.steamOffersChannelId || 'NOT CONFIGURED',
     });
   }
 }

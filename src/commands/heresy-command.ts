@@ -1,11 +1,10 @@
-
-import { Message, EmbedBuilder, CommandInteraction } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { RAGSystem } from '@/services/rag-system';
-import { GamificationService } from '@/services/gamification-service';
-import { Logger } from '@/utils/logger';
-import { CommandContext, HeresyLevel } from '@/types';
+import { type CommandInteraction, EmbedBuilder, type Message } from 'discord.js';
+import type { GamificationService } from '@/services/gamification-service';
+import type { RAGSystem } from '@/services/rag-system';
+import type { CommandContext, HeresyLevel } from '@/types';
 import { DISCORD_COLORS, WARHAMMER_CONSTANTS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class HeresyCommand extends BaseCommand {
   name = 'herejia';
@@ -22,7 +21,11 @@ export class HeresyCommand extends BaseCommand {
     this.gamificationService = gamificationService!; // Will be provided by CommandManager
   }
 
-  async execute(message: Message | CommandInteraction, args: string[], context: CommandContext): Promise<void> {
+  async execute(
+    message: Message | CommandInteraction,
+    args: string[],
+    context: CommandContext
+  ): Promise<void> {
     this.logCommand(context, this.name, args);
 
     let textToAnalyze = args.join(' ');
@@ -46,7 +49,11 @@ export class HeresyCommand extends BaseCommand {
         .addFields(
           { name: '💬 Slash Command', value: '`/herejia mensaje: [texto]`', inline: false },
           { name: '💬 Prefijo', value: '`!capellan herejia [mensaje]`', inline: false },
-          { name: '↩️ Responder a mensaje', value: 'Responde a un mensaje con `!capellan herejia`', inline: false }
+          {
+            name: '↩️ Responder a mensaje',
+            value: 'Responde a un mensaje con `!capellan herejia`',
+            inline: false,
+          }
         )
         .setFooter({ text: 'El Emperador ve todo' });
 
@@ -62,8 +69,11 @@ export class HeresyCommand extends BaseCommand {
     const loadingMsg = await this.sendResponse(message, { embeds: [loadingEmbed] });
 
     try {
-      const result = await this.ragSystem.generateCapellanResponse(textToAnalyze, 'heresy_analysis');
-      
+      const result = await this.ragSystem.generateCapellanResponse(
+        textToAnalyze,
+        'heresy_analysis'
+      );
+
       const level = this.extractHeresyLevel(result.response);
       const colorConfig = WARHAMMER_CONSTANTS.HERESY_LEVELS[level];
 
@@ -72,15 +82,15 @@ export class HeresyCommand extends BaseCommand {
         .setTitle('⚖️ Juicio del Capellán')
         .setDescription(result.response)
         .addFields(
-          { 
-            name: '📋 Mensaje Analizado', 
-            value: `"${textToAnalyze.substring(0, 200)}${textToAnalyze.length > 200 ? '...' : '\"'}`, 
-            inline: false 
+          {
+            name: '📋 Mensaje Analizado',
+            value: `"${textToAnalyze.substring(0, 200)}${textToAnalyze.length > 200 ? '...' : '"'}`,
+            inline: false,
           },
-          { 
-            name: '🎯 Nivel de Herejía', 
-            value: `**${level}** - *${colorConfig.description}*`, 
-            inline: true 
+          {
+            name: '🎯 Nivel de Herejía',
+            value: `**${level}** - *${colorConfig.description}*`,
+            inline: true,
           }
         )
         .setTimestamp()
@@ -89,13 +99,13 @@ export class HeresyCommand extends BaseCommand {
       // Add sources if available
       if (result.sources.length > 0) {
         const sourcesText = result.sources
-          .map(s => `• ${s.source} (${Math.round(s.similarity * 100)}% relevancia)`)
+          .map((s) => `• ${s.source} (${Math.round(s.similarity * 100)}% relevancia)`)
           .join('\n');
-        
-        embed.addFields({ 
-          name: '📚 Fuentes Consultadas', 
-          value: sourcesText, 
-          inline: false 
+
+        embed.addFields({
+          name: '📚 Fuentes Consultadas',
+          value: sourcesText,
+          inline: false,
         });
       }
 
@@ -117,18 +127,19 @@ export class HeresyCommand extends BaseCommand {
         level,
         textLength: textToAnalyze.length,
         sourcesUsed: result.sources.length,
-        tokensUsed: result.tokensUsed
+        tokensUsed: result.tokensUsed,
+      });
+    } catch (error: any) {
+      this.logger.error('Error in heresy analysis', {
+        error: error?.message || 'Unknown error',
+        userId: context.userId,
       });
 
-    } catch (error: any) {
-      this.logger.error('Error in heresy analysis', { 
-        error: error?.message || 'Unknown error', 
-        userId: context.userId 
-      });
-      
       const errorEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
-        .setDescription('⚠️ *Los espíritus de la máquina me fallan. El Omnissiah requiere plegarias.*')
+        .setDescription(
+          '⚠️ *Los espíritus de la máquina me fallan. El Omnissiah requiere plegarias.*'
+        )
         .setFooter({ text: 'Error técnico reportado' });
 
       // For slash commands, we need to use followUp instead of edit
@@ -142,14 +153,20 @@ export class HeresyCommand extends BaseCommand {
   }
 
   private extractHeresyLevel(response: string): HeresyLevel {
-    const levels: HeresyLevel[] = ['HEREJIA_EXTREMA', 'HEREJIA_MAYOR', 'HEREJIA_MENOR', 'SOSPECHOSO', 'PURA_FE'];
-    
+    const levels: HeresyLevel[] = [
+      'HEREJIA_EXTREMA',
+      'HEREJIA_MAYOR',
+      'HEREJIA_MENOR',
+      'SOSPECHOSO',
+      'PURA_FE',
+    ];
+
     for (const level of levels) {
       if (response.includes(level)) {
         return level;
       }
     }
-    
+
     return 'SOSPECHOSO'; // Default fallback
   }
 }

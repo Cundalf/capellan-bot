@@ -1,10 +1,9 @@
-
-import { Message, EmbedBuilder } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { RAGSystem } from '@/services/rag-system';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import { EmbedBuilder, type Message } from 'discord.js';
+import type { RAGSystem } from '@/services/rag-system';
+import type { CommandContext } from '@/types';
 import { DISCORD_COLORS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class SourcesCommand extends BaseCommand {
   name = 'fuentes';
@@ -24,12 +23,14 @@ export class SourcesCommand extends BaseCommand {
 
     try {
       const stats = this.ragSystem.getStats();
-      
+
       if (stats.sources.length === 0) {
         const embed = new EmbedBuilder()
           .setColor(DISCORD_COLORS.ORANGE)
           .setTitle('📚 Archivos Sagrados')
-          .setDescription('*No hay fuentes de conocimiento disponibles. Los Inquisidores pueden agregar documentos usando el comando `agregar`.*')
+          .setDescription(
+            '*No hay fuentes de conocimiento disponibles. Los Inquisidores pueden agregar documentos usando el comando `agregar`.*'
+          )
           .setFooter({ text: 'Base de conocimiento vacía' });
 
         await message.reply({ embeds: [embed] });
@@ -40,15 +41,17 @@ export class SourcesCommand extends BaseCommand {
         .setColor(DISCORD_COLORS.BLUE)
         .setTitle('📚 Fuentes de Conocimiento Imperial')
         .setDescription('*Lista completa de documentos sagrados disponibles:*')
-        .addFields(
-          { name: '📊 Resumen', value: `**${stats.documents}** fragmentos de ${stats.sources.length} fuentes`, inline: false }
-        );
+        .addFields({
+          name: '📊 Resumen',
+          value: `**${stats.documents}** fragmentos de ${stats.sources.length} fuentes`,
+          inline: false,
+        });
 
       if (Object.keys(stats.types).length > 0) {
         const typesText = Object.entries(stats.types)
           .map(([type, count]) => `**${type}**: ${count}`)
           .join(' • ');
-        
+
         embed.addFields({ name: '📋 Tipos de Contenido', value: typesText, inline: false });
       }
 
@@ -67,22 +70,22 @@ export class SourcesCommand extends BaseCommand {
         })
         .join('\n');
 
-      embed.addFields({ 
-        name: `📖 Fuentes (Página ${page}/${totalPages})`, 
-        value: sourcesList || '*No hay fuentes en esta página*', 
-        inline: false 
+      embed.addFields({
+        name: `📖 Fuentes (Página ${page}/${totalPages})`,
+        value: sourcesList || '*No hay fuentes en esta página*',
+        inline: false,
       });
 
       if (totalPages > 1) {
         embed.addFields({
           name: '📄 Navegación',
           value: `Usa \`!capellan fuentes [página]\` para ver otras páginas\nEjemplo: \`!capellan fuentes 2\``,
-          inline: false
+          inline: false,
         });
       }
 
-      embed.setTimestamp().setFooter({ 
-        text: `Archivos Imperiales | Página ${page}/${totalPages}` 
+      embed.setTimestamp().setFooter({
+        text: `Archivos Imperiales | Página ${page}/${totalPages}`,
       });
 
       await message.reply({ embeds: [embed] });
@@ -91,18 +94,19 @@ export class SourcesCommand extends BaseCommand {
         userId: context.userId,
         totalSources: stats.sources.length,
         page,
-        totalPages
+        totalPages,
+      });
+    } catch (error: any) {
+      this.logger.error('Error listing sources', {
+        error: error?.message || 'Unknown error',
+        userId: context.userId,
       });
 
-    } catch (error: any) {
-      this.logger.error('Error listing sources', { 
-        error: error?.message || 'Unknown error', 
-        userId: context.userId 
-      });
-      
       const errorEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
-        .setDescription('*Error accediendo a la lista de fuentes. Los archivos sagrados están temporalmente inaccesibles.*')
+        .setDescription(
+          '*Error accediendo a la lista de fuentes. Los archivos sagrados están temporalmente inaccesibles.*'
+        )
         .setFooter({ text: 'Error reportado' });
 
       await message.reply({ embeds: [errorEmbed] });
@@ -111,17 +115,18 @@ export class SourcesCommand extends BaseCommand {
 
   private truncateSource(source: string): string {
     if (source.length <= 60) return source;
-    
+
     if (source.startsWith('http')) {
       try {
         const url = new URL(source);
-        const path = url.pathname.length > 30 ? url.pathname.substring(0, 30) + '...' : url.pathname;
+        const path =
+          url.pathname.length > 30 ? url.pathname.substring(0, 30) + '...' : url.pathname;
         return `${url.hostname}${path}`;
       } catch {
         return source.substring(0, 60) + '...';
       }
     }
-    
+
     return source.substring(0, 60) + '...';
   }
 }

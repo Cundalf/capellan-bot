@@ -1,9 +1,8 @@
-
-import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { Logger } from '@/utils/logger';
-import { UserProfile, UserProfiles, UserRank, Achievement, PenitenceStatus } from '@/types';
+import type { Achievement, PenitenceStatus, UserProfile, UserProfiles, UserRank } from '@/types';
+import type { Logger } from '@/utils/logger';
 
 export class GamificationService {
   private profiles: UserProfiles = {};
@@ -60,14 +59,14 @@ export class GamificationService {
         joinedAt: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
         achievements: [],
-        penitencias: []
+        penitencias: [],
       };
       await this.saveProfiles();
       this.logger.info('New user profile created', { userId, username });
     } else {
       this.profiles[userId].username = username;
       this.profiles[userId].lastActivity = new Date().toISOString();
-      
+
       // Migration: Ensure penitencias array exists
       if (!this.profiles[userId].penitencias) {
         this.profiles[userId].penitencias = [];
@@ -76,21 +75,30 @@ export class GamificationService {
     return this.profiles[userId];
   }
 
-  async addPurityPoints(userId: string, points: number, reason: string): Promise<UserProfile | null> {
+  async addPurityPoints(
+    userId: string,
+    points: number,
+    reason: string
+  ): Promise<UserProfile | null> {
     const profile = this.profiles[userId];
     if (!profile) return null;
 
     profile.purityPoints += points;
     profile.lastActivity = new Date().toISOString();
-    
+
     const oldRank = profile.rank;
     profile.rank = this.calculateRank(profile);
-    
+
     await this.checkAchievements(profile);
     await this.saveProfiles();
 
-    this.logger.info('Purity points added', { userId, points, reason, newTotal: profile.purityPoints });
-    
+    this.logger.info('Purity points added', {
+      userId,
+      points,
+      reason,
+      newTotal: profile.purityPoints,
+    });
+
     if (oldRank !== profile.rank) {
       this.logger.info('User rank changed', { userId, oldRank, newRank: profile.rank });
     }
@@ -98,21 +106,30 @@ export class GamificationService {
     return profile;
   }
 
-  async addCorruptionPoints(userId: string, points: number, reason: string): Promise<UserProfile | null> {
+  async addCorruptionPoints(
+    userId: string,
+    points: number,
+    reason: string
+  ): Promise<UserProfile | null> {
     const profile = this.profiles[userId];
     if (!profile) return null;
 
     profile.corruptionPoints += points;
     profile.lastActivity = new Date().toISOString();
-    
+
     const oldRank = profile.rank;
     profile.rank = this.calculateRank(profile);
-    
+
     await this.checkAchievements(profile);
     await this.saveProfiles();
 
-    this.logger.warn('Corruption points added', { userId, points, reason, newTotal: profile.corruptionPoints });
-    
+    this.logger.warn('Corruption points added', {
+      userId,
+      points,
+      reason,
+      newTotal: profile.corruptionPoints,
+    });
+
     if (oldRank !== profile.rank) {
       this.logger.warn('User rank degraded', { userId, oldRank, newRank: profile.rank });
     }
@@ -120,7 +137,12 @@ export class GamificationService {
     return profile;
   }
 
-  async assignPenitence(userId: string, reason: string, assignedBy: string, durationHours: number): Promise<string | null> {
+  async assignPenitence(
+    userId: string,
+    reason: string,
+    assignedBy: string,
+    durationHours: number
+  ): Promise<string | null> {
     const profile = this.profiles[userId];
     if (!profile) return null;
 
@@ -131,7 +153,7 @@ export class GamificationService {
 
     const endsAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
     const penitenceId = `pen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const newPenitence: PenitenceStatus = {
       id: penitenceId,
       active: true,
@@ -139,7 +161,7 @@ export class GamificationService {
       assignedBy,
       assignedAt: new Date().toISOString(),
       duration: durationHours,
-      endsAt
+      endsAt,
     };
 
     profile.penitencias.push(newPenitence);
@@ -148,7 +170,13 @@ export class GamificationService {
     profile.penitenceStatus = newPenitence;
 
     await this.saveProfiles();
-    this.logger.inquisitor('Penitence assigned', { userId, reason, assignedBy, durationHours, penitenceId });
+    this.logger.inquisitor('Penitence assigned', {
+      userId,
+      reason,
+      assignedBy,
+      durationHours,
+      penitenceId,
+    });
     return penitenceId;
   }
 
@@ -163,19 +191,18 @@ export class GamificationService {
 
     if (penitenceId) {
       // Remove specific penitence by ID
-      const index = profile.penitencias.findIndex(p => p.id === penitenceId);
+      const index = profile.penitencias.findIndex((p) => p.id === penitenceId);
       if (index === -1) return false;
 
       profile.penitencias.splice(index, 1);
-      
+
       // Update penitenceStatus to the most recent active penitence, or undefined
-      const activePenitencias = profile.penitencias.filter(p => p.active);
-      profile.penitenceStatus = activePenitencias.length > 0 
-        ? activePenitencias[activePenitencias.length - 1] 
-        : undefined;
+      const activePenitencias = profile.penitencias.filter((p) => p.active);
+      profile.penitenceStatus =
+        activePenitencias.length > 0 ? activePenitencias[activePenitencias.length - 1] : undefined;
     } else {
       // Remove all active penitencias (backward compatibility)
-      profile.penitencias = profile.penitencias.map(p => ({ ...p, active: false }));
+      profile.penitencias = profile.penitencias.map((p) => ({ ...p, active: false }));
       profile.penitenceStatus = undefined;
     }
 
@@ -191,15 +218,15 @@ export class GamificationService {
   getActivePenitencias(userId: string): PenitenceStatus[] {
     const profile = this.profiles[userId];
     if (!profile || !profile.penitencias) return [];
-    
+
     const now = Date.now();
-    return profile.penitencias.filter(p => p.active && new Date(p.endsAt).getTime() > now);
+    return profile.penitencias.filter((p) => p.active && new Date(p.endsAt).getTime() > now);
   }
 
   getAllPenitencias(userId: string): PenitenceStatus[] {
     const profile = this.profiles[userId];
     if (!profile || !profile.penitencias) return [];
-    
+
     return [...profile.penitencias];
   }
 
@@ -209,7 +236,7 @@ export class GamificationService {
 
     profile.totalMessages++;
     profile.lastActivity = new Date().toISOString();
-    
+
     if (profile.totalMessages % 100 === 0) {
       await this.addPurityPoints(userId, 10, 'Participación activa (100 mensajes)');
     }
@@ -220,13 +247,13 @@ export class GamificationService {
     if (!profile) return;
 
     profile.heresiesDetected++;
-    
+
     const points: Record<string, number> = {
-      'PURA_FE': 5,
-      'SOSPECHOSO': 2,
-      'HEREJIA_MENOR': -5,
-      'HEREJIA_MAYOR': -15,
-      'HEREJIA_EXTREMA': -30
+      PURA_FE: 5,
+      SOSPECHOSO: 2,
+      HEREJIA_MENOR: -5,
+      HEREJIA_MAYOR: -15,
+      HEREJIA_EXTREMA: -30,
     };
 
     const pointChange = points[level] || 0;
@@ -247,7 +274,7 @@ export class GamificationService {
 
   private calculateRank(profile: UserProfile): UserRank {
     const netPurity = profile.purityPoints - profile.corruptionPoints;
-    
+
     if (netPurity < -100) return 'Herético';
     if (netPurity < -50) return 'Sospechoso';
     if (netPurity < 50) return 'Ciudadano';
@@ -264,9 +291,9 @@ export class GamificationService {
       if (!profile.achievements.includes(achievement.id) && achievement.condition(profile)) {
         profile.achievements.push(achievement.id);
         await this.addPurityPoints(profile.userId, 25, `Logro desbloqueado: ${achievement.name}`);
-        this.logger.info('Achievement unlocked', { 
-          userId: profile.userId, 
-          achievement: achievement.name 
+        this.logger.info('Achievement unlocked', {
+          userId: profile.userId,
+          achievement: achievement.name,
         });
       }
     }
@@ -279,79 +306,92 @@ export class GamificationService {
         name: 'Primeros Pasos',
         description: 'Envía tu primer mensaje',
         icon: '👶',
-        condition: (profile) => profile.totalMessages >= 1
+        condition: (profile) => profile.totalMessages >= 1,
       },
       {
         id: 'faithful_servant',
         name: 'Servo Fiel',
         description: 'Alcanza 100 puntos de pureza',
         icon: '🕊️',
-        condition: (profile) => profile.purityPoints >= 100
+        condition: (profile) => profile.purityPoints >= 100,
       },
       {
         id: 'heresy_hunter',
         name: 'Cazador de Herejías',
         description: 'Detecta 10 herejías',
         icon: '🔍',
-        condition: (profile) => profile.heresiesDetected >= 10
+        condition: (profile) => profile.heresiesDetected >= 10,
       },
       {
         id: 'sermon_listener',
         name: 'Oyente Devoto',
         description: 'Recibe 25 sermones',
         icon: '📖',
-        condition: (profile) => profile.sermonsReceived >= 25
+        condition: (profile) => profile.sermonsReceived >= 25,
       },
       {
         id: 'active_member',
         name: 'Miembro Activo',
         description: 'Envía 1000 mensajes',
         icon: '💬',
-        condition: (profile) => profile.totalMessages >= 1000
+        condition: (profile) => profile.totalMessages >= 1000,
       },
       {
         id: 'pure_soul',
         name: 'Alma Pura',
         description: 'Alcanza 500 puntos de pureza',
         icon: '✨',
-        condition: (profile) => profile.purityPoints >= 500
+        condition: (profile) => profile.purityPoints >= 500,
       },
       {
         id: 'emperor_blessed',
         name: 'Bendecido por el Emperador',
         description: 'Alcanza el rango de Santo',
         icon: '👑',
-        condition: (profile) => profile.rank === 'Santo' || profile.rank === 'Mártir' || profile.rank === 'Servo del Emperador'
-      }
+        condition: (profile) =>
+          profile.rank === 'Santo' ||
+          profile.rank === 'Mártir' ||
+          profile.rank === 'Servo del Emperador',
+      },
     ];
   }
 
   getLeaderboard(limit: number = 10): Array<{ rank: number; profile: UserProfile }> {
     const sorted = Object.values(this.profiles)
-      .sort((a, b) => (b.purityPoints - b.corruptionPoints) - (a.purityPoints - a.corruptionPoints))
+      .sort((a, b) => b.purityPoints - b.corruptionPoints - (a.purityPoints - a.corruptionPoints))
       .slice(0, limit);
-    
+
     return sorted.map((profile, index) => ({
       rank: index + 1,
-      profile
+      profile,
     }));
   }
 
   getRankDistribution(): Record<UserRank, number> {
     const distribution = {} as Record<UserRank, number>;
-    const ranks: UserRank[] = ['Herético', 'Sospechoso', 'Ciudadano', 'Fiel', 'Devoto', 'Piadoso', 'Santo', 'Mártir', 'Servo del Emperador'];
-    
-    ranks.forEach(rank => distribution[rank] = 0);
-    
-    Object.values(this.profiles).forEach(profile => {
+    const ranks: UserRank[] = [
+      'Herético',
+      'Sospechoso',
+      'Ciudadano',
+      'Fiel',
+      'Devoto',
+      'Piadoso',
+      'Santo',
+      'Mártir',
+      'Servo del Emperador',
+    ];
+
+    ranks.forEach((rank) => (distribution[rank] = 0));
+
+    Object.values(this.profiles).forEach((profile) => {
       distribution[profile.rank]++;
     });
-    
+
     return distribution;
   }
 
   getAchievementById(id: string): Achievement | undefined {
-    return this.achievements.find(achievement => achievement.id === id);
+    return this.achievements.find((achievement) => achievement.id === id);
   }
 
   getUserStats(userId: string): UserProfile | null {
@@ -384,10 +424,11 @@ export class GamificationService {
 
       // Update penitenceStatus to the most recent active penitence, or undefined
       if (hasExpiredPenitencias || profile.penitenceStatus?.active) {
-        const activePenitencias = profile.penitencias.filter(p => p.active);
-        profile.penitenceStatus = activePenitencias.length > 0 
-          ? activePenitencias[activePenitencias.length - 1] 
-          : undefined;
+        const activePenitencias = profile.penitencias.filter((p) => p.active);
+        profile.penitenceStatus =
+          activePenitencias.length > 0
+            ? activePenitencias[activePenitencias.length - 1]
+            : undefined;
       }
     }
 

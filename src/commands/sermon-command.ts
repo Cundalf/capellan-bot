@@ -1,11 +1,10 @@
-
-import { Message, EmbedBuilder } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { RAGSystem } from '@/services/rag-system';
-import { GamificationService } from '@/services/gamification-service';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import { EmbedBuilder, type Message } from 'discord.js';
+import type { GamificationService } from '@/services/gamification-service';
+import type { RAGSystem } from '@/services/rag-system';
+import type { CommandContext } from '@/types';
 import { DISCORD_COLORS, WARHAMMER_CONSTANTS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class SermonCommand extends BaseCommand {
   name = 'sermon';
@@ -34,9 +33,10 @@ export class SermonCommand extends BaseCommand {
 
     try {
       // Use custom topic if provided
-      const topic = args.length > 0 
-        ? args.join(' ') 
-        : 'Genera un sermón diario inspirador para fortalecer la fe imperial';
+      const topic =
+        args.length > 0
+          ? args.join(' ')
+          : 'Genera un sermón diario inspirador para fortalecer la fe imperial';
       const result = await this.ragSystem.generateCapellanResponse(topic, 'daily_sermon');
 
       const embed = new EmbedBuilder()
@@ -49,14 +49,14 @@ export class SermonCommand extends BaseCommand {
       // Add sources if available
       if (result.sources.length > 0) {
         const sourcesText = result.sources
-          .map(s => s.source)
+          .map((s) => s.source)
           .slice(0, 3) // Limit to 3 sources for sermon
           .join(', ');
-        
-        embed.addFields({ 
-          name: '📚 Basado en doctrina', 
-          value: sourcesText || 'Sabiduría del Capellán', 
-          inline: false 
+
+        embed.addFields({
+          name: '📚 Basado en doctrina',
+          value: sourcesText || 'Sabiduría del Capellán',
+          inline: false,
         });
       }
 
@@ -71,33 +71,32 @@ export class SermonCommand extends BaseCommand {
         userId: context.userId,
         topic: args.length > 0 ? topic : 'sermón diario',
         sourcesUsed: result.sources.length,
-        tokensUsed: result.tokensUsed
+        tokensUsed: result.tokensUsed,
       });
-
     } catch (error: any) {
-      this.logger.error('Error generating sermon', { 
-        error: error?.message || 'Unknown error', 
-        userId: context.userId 
+      this.logger.error('Error generating sermon', {
+        error: error?.message || 'Unknown error',
+        userId: context.userId,
       });
 
       // Fallback sermons
       const fallbackSermons = [
         {
           title: 'Fe Imperial',
-          content: `🕊️ *${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.PROTECTION} a quienes marchan en Su nombre. Que Su luz dorada guíe vuestros pasos en este día, hermanos.*\n\n**${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.GREETING}** ⚡`
+          content: `🕊️ *${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.PROTECTION} a quienes marchan en Su nombre. Que Su luz dorada guíe vuestros pasos en este día, hermanos.*\n\n**${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.GREETING}** ⚡`,
         },
         {
           title: 'Vigilancia Eterna',
-          content: `⚔️ *Recordad: la herejía no duerme, ni tampoco debe hacerlo nuestra vigilancia. Manteneos puros en pensamiento y acción.*\n\n**${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.BATTLE_CRY}** 👑`
+          content: `⚔️ *Recordad: la herejía no duerme, ni tampoco debe hacerlo nuestra vigilancia. Manteneos puros en pensamiento y acción.*\n\n**${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.BATTLE_CRY}** 👑`,
         },
         {
           title: 'Servicio al Emperador',
-          content: `👑 *Solo en el servicio al Emperador encontramos verdadero propósito. Que cada acción sea una ofrenda al Trono Dorado.*\n\n**${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.BLESSING}** 🕊️`
-        }
+          content: `👑 *Solo en el servicio al Emperador encontramos verdadero propósito. Que cada acción sea una ofrenda al Trono Dorado.*\n\n**${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.BLESSING}** 🕊️`,
+        },
       ];
 
       const randomSermon = fallbackSermons[Math.floor(Math.random() * fallbackSermons.length)];
-      
+
       const fallbackEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.GOLD)
         .setTitle(`📜 ${randomSermon.title}`)

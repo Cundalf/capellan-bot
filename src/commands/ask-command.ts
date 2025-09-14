@@ -1,9 +1,9 @@
-import { Message, EmbedBuilder, CommandInteraction } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { RAGSystem } from '@/services/rag-system';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import { type CommandInteraction, EmbedBuilder, type Message } from 'discord.js';
+import type { RAGSystem } from '@/services/rag-system';
+import type { CommandContext } from '@/types';
 import { DISCORD_COLORS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class AskCommand extends BaseCommand {
   name = 'preguntar';
@@ -18,9 +18,13 @@ export class AskCommand extends BaseCommand {
     this.ragSystem = ragSystem;
   }
 
-  async execute(message: Message | CommandInteraction, args: string[], context: CommandContext): Promise<void> {
+  async execute(
+    message: Message | CommandInteraction,
+    args: string[],
+    context: CommandContext
+  ): Promise<void> {
     this.logCommand(context, this.name, args);
-    
+
     const question = args.join(' ');
 
     if (!question) {
@@ -29,9 +33,18 @@ export class AskCommand extends BaseCommand {
         .setTitle('❓ Pregunta al Capellán')
         .setDescription('*Consulta al Capellán sobre cualquier aspecto del lore de Warhammer 40k.*')
         .addFields(
-          { name: '💬 Slash Command', value: '`/preguntar pregunta: [tu pregunta]`', inline: false },
+          {
+            name: '💬 Slash Command',
+            value: '`/preguntar pregunta: [tu pregunta]`',
+            inline: false,
+          },
           { name: '💬 Prefijo', value: '`!capellan preguntar [tu pregunta]`', inline: false },
-          { name: '💡 Ejemplos', value: '`/preguntar pregunta: ¿Quién es el Emperador?`\n`!capellan preguntar ¿Qué son los Space Marines?`\n`!capellan preguntar Cuéntame sobre la Herejía de Horus`', inline: false }
+          {
+            name: '💡 Ejemplos',
+            value:
+              '`/preguntar pregunta: ¿Quién es el Emperador?`\n`!capellan preguntar ¿Qué son los Space Marines?`\n`!capellan preguntar Cuéntame sobre la Herejía de Horus`',
+            inline: false,
+          }
         )
         .setFooter({ text: 'El conocimiento es poder, úsalo bien' });
 
@@ -40,7 +53,10 @@ export class AskCommand extends BaseCommand {
     }
 
     if (question.length < 5) {
-      await this.sendResponse(message, '*Tu pregunta debe ser más específica, hermano. Al menos 5 caracteres.*');
+      await this.sendResponse(
+        message,
+        '*Tu pregunta debe ser más específica, hermano. Al menos 5 caracteres.*'
+      );
       return;
     }
 
@@ -54,14 +70,16 @@ export class AskCommand extends BaseCommand {
     try {
       // Use the 'questions' command type which searches across all collections
       const result = await this.ragSystem.generateCapellanResponse(question, 'questions');
-      
+
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.GOLD)
         .setTitle('📚 Respuesta del Capellán')
         .setDescription(result.response)
-        .addFields(
-          { name: '❓ Tu Pregunta', value: `"${question.substring(0, 200)}${question.length > 200 ? '...' : '\"'}`, inline: false }
-        )
+        .addFields({
+          name: '❓ Tu Pregunta',
+          value: `"${question.substring(0, 200)}${question.length > 200 ? '...' : '"'}`,
+          inline: false,
+        })
         .setTimestamp()
         .setFooter({ text: 'Sabiduría Imperial' });
 
@@ -74,17 +92,18 @@ export class AskCommand extends BaseCommand {
             return `${index + 1}. ${sourceType} (${Math.round(source.similarity * 100)}% relevancia)`;
           })
           .join('\n');
-        
-        embed.addFields({ 
-          name: '📖 Fuentes Consultadas', 
-          value: sourcesText, 
-          inline: false 
+
+        embed.addFields({
+          name: '📖 Fuentes Consultadas',
+          value: sourcesText,
+          inline: false,
         });
       } else {
-        embed.addFields({ 
-          name: '⚠️ Nota', 
-          value: 'Respuesta basada en el conocimiento base del Capellán. Para mayor precisión, los Inquisidores pueden expandir la base de conocimientos.', 
-          inline: false 
+        embed.addFields({
+          name: '⚠️ Nota',
+          value:
+            'Respuesta basada en el conocimiento base del Capellán. Para mayor precisión, los Inquisidores pueden expandir la base de conocimientos.',
+          inline: false,
         });
       }
 
@@ -94,7 +113,7 @@ export class AskCommand extends BaseCommand {
         embed.addFields({
           name: '💡 Comandos Relacionados',
           value: relatedCommands.join(' • '),
-          inline: false
+          inline: false,
         });
       }
 
@@ -110,20 +129,21 @@ export class AskCommand extends BaseCommand {
         userId: context.userId,
         question: question.substring(0, 100),
         sourcesFound: result.sources.length,
-        tokensUsed: result.tokensUsed
+        tokensUsed: result.tokensUsed,
+      });
+    } catch (error: any) {
+      this.logger.error('Failed to answer question', {
+        error: error?.message || 'Unknown error',
+        question,
+        userId: context.userId,
       });
 
-    } catch (error: any) {
-      this.logger.error('Failed to answer question', { 
-        error: error?.message || 'Unknown error', 
-        question, 
-        userId: context.userId 
-      });
-      
       const errorEmbed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
         .setTitle('❌ Error del Servo-Cráneo')
-        .setDescription('*Los espíritus de la máquina no responden. Las runas sagradas están temporalmente inaccesibles.*\n\nIntenta de nuevo en unos momentos, o contacta a un Inquisidor si el problema persiste.')
+        .setDescription(
+          '*Los espíritus de la máquina no responden. Las runas sagradas están temporalmente inaccesibles.*\n\nIntenta de nuevo en unos momentos, o contacta a un Inquisidor si el problema persiste.'
+        )
         .setFooter({ text: 'Error reportado al Adeptus Mechanicus' });
 
       // For slash commands, we need to use followUp instead of edit
@@ -152,19 +172,31 @@ export class AskCommand extends BaseCommand {
     const commands: string[] = [];
     const questionLower = question.toLowerCase();
 
-    if (questionLower.includes('herej') || questionLower.includes('caos') || questionLower.includes('corrup')) {
+    if (
+      questionLower.includes('herej') ||
+      questionLower.includes('caos') ||
+      questionLower.includes('corrup')
+    ) {
       commands.push('`!capellan herejia`');
     }
-    
-    if (questionLower.includes('sermon') || questionLower.includes('orac') || questionLower.includes('bendic')) {
+
+    if (
+      questionLower.includes('sermon') ||
+      questionLower.includes('orac') ||
+      questionLower.includes('bendic')
+    ) {
       commands.push('`!capellan sermon`');
     }
-    
+
     if (questionLower.includes('buscar') || questionLower.includes('encontrar')) {
       commands.push('`!capellan buscar`');
     }
 
-    if (questionLower.includes('emperador') || questionLower.includes('imperio') || questionLower.includes('fe')) {
+    if (
+      questionLower.includes('emperador') ||
+      questionLower.includes('imperio') ||
+      questionLower.includes('fe')
+    ) {
       commands.push('`!capellan credo`');
     }
 

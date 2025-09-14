@@ -1,15 +1,15 @@
-import { 
-  SlashCommandBuilder, 
+import {
+  type Client,
+  type CommandInteraction,
+  InteractionType,
+  REST,
+  Routes,
+  SlashCommandBuilder,
   SlashCommandSubcommandBuilder,
-  REST, 
-  Routes, 
-  Client,
-  CommandInteraction,
-  InteractionType
 } from 'discord.js';
-import { Logger } from '@/utils/logger';
-import { CommandManager } from './command-manager';
-import { CommandContext } from '@/types';
+import type { CommandContext } from '@/types';
+import type { Logger } from '@/utils/logger';
+import type { CommandManager } from './command-manager';
 
 export class SlashCommandManager {
   private client: Client;
@@ -29,32 +29,32 @@ export class SlashCommandManager {
       this.logger.info('Registrando slash commands...');
 
       const commands = this.buildSlashCommands();
-      
+
       // Limpiar comandos de servidor primero para evitar duplicados
       const guilds = this.client.guilds.cache;
       for (const [guildId, guild] of guilds) {
         try {
-          await this.rest.put(
-            Routes.applicationGuildCommands(this.client.user!.id, guildId),
-            { body: [] }
-          );
+          await this.rest.put(Routes.applicationGuildCommands(this.client.user!.id, guildId), {
+            body: [],
+          });
           this.logger.info(`🧹 Comandos de servidor limpiados en: ${guild.name}`);
         } catch (guildError: any) {
-          this.logger.warn(`No se pudieron limpiar comandos en servidor ${guild.name}:`, guildError.message);
+          this.logger.warn(
+            `No se pudieron limpiar comandos en servidor ${guild.name}:`,
+            guildError.message
+          );
         }
       }
-      
+
       // Register commands globally
-      const globalData = await this.rest.put(
-        Routes.applicationCommands(this.client.user!.id),
-        { body: commands }
-      ) as any[];
+      const globalData = (await this.rest.put(Routes.applicationCommands(this.client.user!.id), {
+        body: commands,
+      })) as any[];
 
       this.logger.info(`✅ ${globalData.length} slash commands globales registrados exitosamente`);
-      
     } catch (error: any) {
-      this.logger.error('Error registrando slash commands', { 
-        error: error?.message || 'Unknown error' 
+      this.logger.error('Error registrando slash commands', {
+        error: error?.message || 'Unknown error',
       });
       throw error;
     }
@@ -70,31 +70,22 @@ export class SlashCommandManager {
       new SlashCommandBuilder()
         .setName('herejia')
         .setDescription('Detecta herejía en un mensaje')
-        .addStringOption(option =>
-          option
-            .setName('mensaje')
-            .setDescription('El mensaje a analizar')
-            .setRequired(true)
+        .addStringOption((option) =>
+          option.setName('mensaje').setDescription('El mensaje a analizar').setRequired(true)
         ),
 
       new SlashCommandBuilder()
         .setName('sermon')
         .setDescription('Genera un sermón del Capellán')
-        .addStringOption(option =>
-          option
-            .setName('tema')
-            .setDescription('Tema del sermón')
-            .setRequired(false)
+        .addStringOption((option) =>
+          option.setName('tema').setDescription('Tema del sermón').setRequired(false)
         ),
 
       new SlashCommandBuilder()
         .setName('buscar')
         .setDescription('Busca en la base de conocimientos')
-        .addStringOption(option =>
-          option
-            .setName('consulta')
-            .setDescription('Consulta a realizar')
-            .setRequired(true)
+        .addStringOption((option) =>
+          option.setName('consulta').setDescription('Consulta a realizar').setRequired(true)
         ),
 
       new SlashCommandBuilder()
@@ -109,30 +100,21 @@ export class SlashCommandManager {
         .setName('saludar')
         .setDescription('El Capellán te saluda como un verdadero servidor del Emperador'),
 
-      new SlashCommandBuilder()
-        .setName('credo')
-        .setDescription('Recita el Credo Imperial'),
+      new SlashCommandBuilder().setName('credo').setDescription('Recita el Credo Imperial'),
 
-      new SlashCommandBuilder()
-        .setName('ranking')
-        .setDescription('Muestra el ranking de fieles'),
+      new SlashCommandBuilder().setName('ranking').setDescription('Muestra el ranking de fieles'),
 
-      new SlashCommandBuilder()
-        .setName('imperio')
-        .setDescription('Información sobre el Imperio'),
+      new SlashCommandBuilder().setName('imperio').setDescription('Información sobre el Imperio'),
 
       new SlashCommandBuilder()
         .setName('preguntar')
         .setDescription('Pregunta al Capellán sobre el lore de Warhammer 40k')
-        .addStringOption(option =>
-          option
-            .setName('pregunta')
-            .setDescription('Tu pregunta sobre el lore')
-            .setRequired(true)
-        )
+        .addStringOption((option) =>
+          option.setName('pregunta').setDescription('Tu pregunta sobre el lore').setRequired(true)
+        ),
     ];
 
-    return commands.map(command => command.toJSON());
+    return commands.map((command) => command.toJSON());
   }
 
   async handleSlashCommand(interaction: CommandInteraction): Promise<void> {
@@ -141,16 +123,18 @@ export class SlashCommandManager {
     try {
       // Crear contexto similar al de los comandos de prefijo
       const context = this.createContext(interaction);
-      
+
       // Mapear slash command a comando de prefijo
       const commandName = this.mapSlashToPrefixCommand(interaction);
       const args = this.extractArgsFromInteraction(interaction);
 
       // Obtener el comando del CommandManager
       const command = this.commandManager.getCommand(commandName);
-      
+
       if (!command) {
-        await interaction.reply('*Comando no reconocido, hermano. Usa `/capellan help` para ver los comandos disponibles.*');
+        await interaction.reply(
+          '*Comando no reconocido, hermano. Usa `/capellan help` para ver los comandos disponibles.*'
+        );
         return;
       }
 
@@ -161,15 +145,28 @@ export class SlashCommandManager {
       }
 
       // Verificar rate limiting y AI task management
-      const aiCommands = new Set(['herejia', 'heresy', 'h', 'sermon', 's', 'conocimiento', 'knowledge', 'k', 'buscar', 'search']);
-      
+      const aiCommands = new Set([
+        'herejia',
+        'heresy',
+        'h',
+        'sermon',
+        's',
+        'conocimiento',
+        'knowledge',
+        'k',
+        'buscar',
+        'search',
+      ]);
+
       if (aiCommands.has(commandName)) {
         const aiTaskManager = this.commandManager.getAITaskManager();
         const rateLimiter = this.commandManager.getRateLimiter();
 
         // Verificar si hay una tarea AI activa para este usuario
         if (aiTaskManager.hasActiveTask(context.userId)) {
-          await interaction.reply('⏳ *Ya tienes una consulta al Capellán en curso. Espera a que termine antes de hacer otra.*');
+          await interaction.reply(
+            '⏳ *Ya tienes una consulta al Capellán en curso. Espera a que termine antes de hacer otra.*'
+          );
           return;
         }
 
@@ -177,14 +174,18 @@ export class SlashCommandManager {
         if (aiTaskManager.hasAnyActiveTask()) {
           const activeTasks = aiTaskManager.getActiveTasks();
           const activeUser = activeTasks[0];
-          await interaction.reply(`🔄 *El Capellán está ocupado atendiendo a ${activeUser.username}. Espera tu turno, hermano.*`);
+          await interaction.reply(
+            `🔄 *El Capellán está ocupado atendiendo a ${activeUser.username}. Espera tu turno, hermano.*`
+          );
           return;
         }
 
         // Verificar rate limiting (excepto para Inquisidores)
         if (!context.isInquisitor && !rateLimiter.isAllowed(context.userId)) {
           const remainingTime = rateLimiter.getRemainingTime(context.userId);
-          await interaction.reply(`⏰ *Debes esperar ${remainingTime} segundos antes de hacer otra consulta costosa al Capellán.*`);
+          await interaction.reply(
+            `⏰ *Debes esperar ${remainingTime} segundos antes de hacer otra consulta costosa al Capellán.*`
+          );
           return;
         }
 
@@ -194,24 +195,27 @@ export class SlashCommandManager {
 
       // Ejecutar el comando
       await command.execute(interaction, args, context);
-      
+
       // Completar tarea AI si era un comando AI
       if (this.commandManager.getAITaskManager().hasActiveTask(context.userId)) {
         this.commandManager.getAITaskManager().completeTask(context.userId);
       }
-
     } catch (error: any) {
       this.logger.error('Slash command execution failed', {
         error: error?.message || 'Unknown error',
         command: interaction.commandName,
         userId: interaction.user.id,
-        subcommand: interaction.options.getSubcommand(false)
+        subcommand: interaction.options.getSubcommand(false),
       });
 
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply('⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*');
+        await interaction.reply(
+          '⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*'
+        );
       } else {
-        await interaction.followUp('⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*');
+        await interaction.followUp(
+          '⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*'
+        );
       }
     }
   }
@@ -221,17 +225,17 @@ export class SlashCommandManager {
 
     // Mapear comandos directos a comandos de prefijo
     const commandMap: { [key: string]: string } = {
-      'help': 'help',
-      'herejia': 'herejia',
-      'sermon': 'sermon',
-      'buscar': 'buscar',
-      'fuentes': 'sources',
-      'bendicion': 'blessing',
-      'saludar': 'saludar',
-      'credo': 'credo',
-      'ranking': 'ranking',
-      'imperio': 'imperio',
-      'preguntar': 'preguntar'
+      help: 'help',
+      herejia: 'herejia',
+      sermon: 'sermon',
+      buscar: 'buscar',
+      fuentes: 'sources',
+      bendicion: 'blessing',
+      saludar: 'saludar',
+      credo: 'credo',
+      ranking: 'ranking',
+      imperio: 'imperio',
+      preguntar: 'preguntar',
     };
 
     return commandMap[commandName] || 'help';
@@ -239,7 +243,7 @@ export class SlashCommandManager {
 
   private extractArgsFromInteraction(interaction: CommandInteraction): string[] {
     const args: string[] = [];
-    
+
     // Extraer argumentos de las opciones
     const options = (interaction as any).options;
     if (options?.data) {
@@ -259,7 +263,7 @@ export class SlashCommandManager {
       userId: interaction.user.id,
       username: interaction.user.username,
       channelId: interaction.channelId || '',
-      guildId: interaction.guildId || undefined
+      guildId: interaction.guildId || undefined,
     };
   }
 }

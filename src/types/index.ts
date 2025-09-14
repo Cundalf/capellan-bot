@@ -46,7 +46,12 @@ export interface RAGStats {
   types: Record<string, number>;
 }
 
-export type HeresyLevel = 'PURA_FE' | 'SOSPECHOSO' | 'HEREJIA_MENOR' | 'HEREJIA_MAYOR' | 'HEREJIA_EXTREMA';
+export type HeresyLevel =
+  | 'PURA_FE'
+  | 'SOSPECHOSO'
+  | 'HEREJIA_MENOR'
+  | 'HEREJIA_MAYOR'
+  | 'HEREJIA_EXTREMA';
 
 export interface BotConfig {
   autoHeresyDetectionChance: number;
@@ -68,7 +73,12 @@ export interface CommandContext {
   guildId?: string;
 }
 
-export type CommandType = 'heresy_analysis' | 'daily_sermon' | 'knowledge_search' | 'questions' | 'general';
+export type CommandType =
+  | 'heresy_analysis'
+  | 'daily_sermon'
+  | 'knowledge_search'
+  | 'questions'
+  | 'general';
 
 export interface LogEntry {
   timestamp: string;
@@ -97,7 +107,16 @@ export interface UserProfiles {
   [userId: string]: UserProfile;
 }
 
-export type UserRank =  | 'Herético'  | 'Sospechoso'   | 'Ciudadano'  | 'Fiel'  | 'Devoto'  | 'Piadoso'  | 'Santo'  | 'Mártir'  | 'Servo del Emperador';
+export type UserRank =
+  | 'Herético'
+  | 'Sospechoso'
+  | 'Ciudadano'
+  | 'Fiel'
+  | 'Devoto'
+  | 'Piadoso'
+  | 'Santo'
+  | 'Mártir'
+  | 'Servo del Emperador';
 
 export interface PenitenceStatus {
   id: string;
@@ -125,8 +144,8 @@ export interface SteamApp {
   website?: string;
   developers?: string[];
   publishers?: string[];
-  genres?: Array<{id: number; description: string}>;
-  categories?: Array<{id: number; description: string}>;
+  genres?: Array<{ id: number; description: string }>;
+  categories?: Array<{ id: number; description: string }>;
   price_overview?: {
     currency: string;
     initial: number;

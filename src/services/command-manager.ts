@@ -1,28 +1,27 @@
-
-import { Message, CommandInteraction } from 'discord.js';
-import { BaseCommand } from '@/commands/base-command';
+import type { CommandInteraction, Message } from 'discord.js';
+import { AskCommand } from '@/commands/ask-command';
+import type { BaseCommand } from '@/commands/base-command';
+import { BlessingCommand } from '@/commands/blessing-command';
+import { CredoCommand } from '@/commands/credo-command';
+import { GreetCommand } from '@/commands/greet-command';
 import { HelpCommand } from '@/commands/help-command';
 import { HeresyCommand } from '@/commands/heresy-command';
-import { SermonCommand } from '@/commands/sermon-command';
+import { ImperioCommand } from '@/commands/imperio-command';
 import { InquisitorCommand } from '@/commands/inquisitor-command';
 import { KnowledgeCommand } from '@/commands/knowledge-command';
-import { BlessingCommand } from '@/commands/blessing-command';
-import { GreetCommand } from '@/commands/greet-command';
 import { PenitenceCommand } from '@/commands/penitence-command';
-import { CredoCommand } from '@/commands/credo-command';
-import { SearchCommand } from '@/commands/search-command';
-import { SourcesCommand } from '@/commands/sources-command';
 import { RankingCommand } from '@/commands/ranking-command';
-import { ImperioCommand } from '@/commands/imperio-command';
-import { AskCommand } from '@/commands/ask-command';
-import { InquisitorService } from './inquisitor-service';
-import { RAGSystem } from './rag-system';
-import { DocumentProcessor } from './document-processor';
-import { GamificationService } from './gamification-service';
-import { RateLimiter, RateLimitConfig } from './rate-limiter';
+import { SearchCommand } from '@/commands/search-command';
+import { SermonCommand } from '@/commands/sermon-command';
+import { SourcesCommand } from '@/commands/sources-command';
+import type { CommandContext } from '@/types';
+import type { Logger } from '@/utils/logger';
 import { AITaskManager } from './ai-task-manager';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import type { DocumentProcessor } from './document-processor';
+import type { GamificationService } from './gamification-service';
+import type { InquisitorService } from './inquisitor-service';
+import type { RAGSystem } from './rag-system';
+import { type RateLimitConfig, RateLimiter } from './rate-limiter';
 
 export class CommandManager {
   private commands: Map<string, BaseCommand> = new Map();
@@ -31,9 +30,24 @@ export class CommandManager {
   private gamificationService: GamificationService;
   private rateLimiter: RateLimiter;
   private aiTaskManager: AITaskManager;
-  
+
   // AI commands that consume OpenAI tokens and should be rate limited
-  private readonly aiCommands = new Set(['herejia', 'heresy', 'h', 'sermon', 's', 'conocimiento', 'knowledge', 'k', 'buscar', 'search', 'preguntar', 'ask', 'pregunta', 'question']);
+  private readonly aiCommands = new Set([
+    'herejia',
+    'heresy',
+    'h',
+    'sermon',
+    's',
+    'conocimiento',
+    'knowledge',
+    'k',
+    'buscar',
+    'search',
+    'preguntar',
+    'ask',
+    'pregunta',
+    'question',
+  ]);
 
   constructor(
     logger: Logger,
@@ -45,20 +59,23 @@ export class CommandManager {
     this.logger = logger;
     this.inquisitorService = inquisitorService;
     this.gamificationService = gamificationService;
-    
+
     // Initialize rate limiter: 3 AI requests per 60 seconds
     const rateLimitConfig: RateLimitConfig = {
       windowMs: 60 * 1000, // 1 minute
-      maxRequests: 3
+      maxRequests: 3,
     };
     this.rateLimiter = new RateLimiter(rateLimitConfig, logger);
     this.aiTaskManager = new AITaskManager(logger);
-    
+
     // Clean up stuck AI tasks every 5 minutes
-    setInterval(() => {
-      this.aiTaskManager.cleanupStuckTasks(5 * 60 * 1000);
-    }, 5 * 60 * 1000);
-    
+    setInterval(
+      () => {
+        this.aiTaskManager.cleanupStuckTasks(5 * 60 * 1000);
+      },
+      5 * 60 * 1000
+    );
+
     this.initializeCommands(ragSystem, documentProcessor);
   }
 
@@ -77,31 +94,31 @@ export class CommandManager {
       new SourcesCommand(this.logger, ragSystem),
       new RankingCommand(this.logger, this.gamificationService),
       new ImperioCommand(this.logger, this.gamificationService),
-      new AskCommand(this.logger, ragSystem)
+      new AskCommand(this.logger, ragSystem),
     ];
 
     // Register commands and their aliases
     for (const command of commands) {
       this.commands.set(command.name, command);
-      
+
       for (const alias of command.aliases) {
         this.commands.set(alias, command);
       }
     }
 
-    this.logger.info('Commands initialized', { 
+    this.logger.info('Commands initialized', {
       commandCount: commands.length,
-      totalAliases: Array.from(this.commands.keys()).length
+      totalAliases: Array.from(this.commands.keys()).length,
     });
   }
 
   async handleCommand(message: Message): Promise<void> {
     const content = message.content.trim();
-    
+
     // Check for command prefixes
     const prefixes = ['!capellan', '!c'];
     let usedPrefix: string | null = null;
-    
+
     for (const prefix of prefixes) {
       if (content.toLowerCase().startsWith(prefix.toLowerCase())) {
         usedPrefix = prefix;
@@ -126,9 +143,11 @@ export class CommandManager {
     }
 
     const command = this.commands.get(commandName);
-    
+
     if (!command) {
-      await message.reply('*Comando no reconocido, hermano. Usa `!capellan help` para ver los comandos disponibles.*');
+      await message.reply(
+        '*Comando no reconocido, hermano. Usa `!capellan help` para ver los comandos disponibles.*'
+      );
       return;
     }
 
@@ -145,7 +164,9 @@ export class CommandManager {
     if (this.aiCommands.has(commandName)) {
       // Check if there's already an AI task running for this user
       if (this.aiTaskManager.hasActiveTask(context.userId)) {
-        await message.reply('⏳ *Ya tienes una consulta al Capellán en curso. Espera a que termine antes de hacer otra.*');
+        await message.reply(
+          '⏳ *Ya tienes una consulta al Capellán en curso. Espera a que termine antes de hacer otra.*'
+        );
         return;
       }
 
@@ -153,24 +174,33 @@ export class CommandManager {
       if (this.aiTaskManager.hasAnyActiveTask()) {
         const activeTasks = this.aiTaskManager.getActiveTasks();
         const activeUser = activeTasks[0];
-        await message.reply(`🔄 *El Capellán está ocupado atendiendo a ${activeUser.username}. Espera tu turno, hermano.*`);
+        await message.reply(
+          `🔄 *El Capellán está ocupado atendiendo a ${activeUser.username}. Espera tu turno, hermano.*`
+        );
         return;
       }
 
       // Check rate limiting (except for Inquisitors)
       if (!context.isInquisitor && !this.rateLimiter.isAllowed(context.userId)) {
         const remainingTime = this.rateLimiter.getRemainingTime(context.userId);
-        await message.reply(`⏰ *Debes esperar ${remainingTime} segundos antes de hacer otra consulta costosa al Capellán.*`);
+        await message.reply(
+          `⏰ *Debes esperar ${remainingTime} segundos antes de hacer otra consulta costosa al Capellán.*`
+        );
         return;
       }
 
       // Start AI task tracking
-      this.aiTaskManager.startTask(context.userId, context.username, commandName, context.channelId);
+      this.aiTaskManager.startTask(
+        context.userId,
+        context.username,
+        commandName,
+        context.channelId
+      );
     }
 
     try {
       await command.execute(message, args, context);
-      
+
       // Complete AI task if it was an AI command
       if (this.aiCommands.has(commandName)) {
         this.aiTaskManager.completeTask(context.userId);
@@ -180,44 +210,52 @@ export class CommandManager {
       if (this.aiCommands.has(commandName)) {
         this.aiTaskManager.completeTask(context.userId);
       }
-      
+
       this.logger.error('Command execution failed', {
         error: error?.message || 'Unknown error',
         command: commandName,
         userId: context.userId,
-        args
+        args,
       });
 
-      await message.reply('⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*');
+      await message.reply(
+        '⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*'
+      );
     }
   }
 
   private createContext(message: Message) {
     const isInquisitor = this.inquisitorService.isInquisitor(message.author.id);
-    
+
     return {
       isInquisitor,
       userId: message.author.id,
       username: message.author.username,
       channelId: message.channel.id,
-      guildId: message.guild?.id
+      guildId: message.guild?.id,
     };
   }
 
-  getCommandList(): Array<{ name: string; description: string; aliases: string[]; requiresInquisitor: boolean }> {
+  getCommandList(): Array<{
+    name: string;
+    description: string;
+    aliases: string[];
+    requiresInquisitor: boolean;
+  }> {
     const uniqueCommands = new Map();
-    
+
     for (const [name, command] of this.commands) {
-      if (name === command.name) { // Only include primary names, not aliases
+      if (name === command.name) {
+        // Only include primary names, not aliases
         uniqueCommands.set(name, {
           name: command.name,
           description: command.description,
           aliases: command.aliases,
-          requiresInquisitor: command.requiresInquisitor
+          requiresInquisitor: command.requiresInquisitor,
         });
       }
     }
-    
+
     return Array.from(uniqueCommands.values());
   }
 
@@ -238,9 +276,11 @@ export class CommandManager {
     const args = this.extractArgsFromInteraction(interaction);
 
     const command = this.commands.get(commandName);
-    
+
     if (!command) {
-      await interaction.reply('*Comando no reconocido, hermano. Usa `/capellan help` para ver los comandos disponibles.*');
+      await interaction.reply(
+        '*Comando no reconocido, hermano. Usa `/capellan help` para ver los comandos disponibles.*'
+      );
       return;
     }
 
@@ -257,7 +297,9 @@ export class CommandManager {
     if (this.aiCommands.has(commandName)) {
       // Verificar si hay una tarea AI activa para este usuario
       if (this.aiTaskManager.hasActiveTask(context.userId)) {
-        await interaction.reply('⏳ *Ya tienes una consulta al Capellán en curso. Espera a que termine antes de hacer otra.*');
+        await interaction.reply(
+          '⏳ *Ya tienes una consulta al Capellán en curso. Espera a que termine antes de hacer otra.*'
+        );
         return;
       }
 
@@ -265,24 +307,33 @@ export class CommandManager {
       if (this.aiTaskManager.hasAnyActiveTask()) {
         const activeTasks = this.aiTaskManager.getActiveTasks();
         const activeUser = activeTasks[0];
-        await interaction.reply(`🔄 *El Capellán está ocupado atendiendo a ${activeUser.username}. Espera tu turno, hermano.*`);
+        await interaction.reply(
+          `🔄 *El Capellán está ocupado atendiendo a ${activeUser.username}. Espera tu turno, hermano.*`
+        );
         return;
       }
 
       // Verificar rate limiting (excepto para Inquisidores)
       if (!context.isInquisitor && !this.rateLimiter.isAllowed(context.userId)) {
         const remainingTime = this.rateLimiter.getRemainingTime(context.userId);
-        await interaction.reply(`⏰ *Debes esperar ${remainingTime} segundos antes de hacer otra consulta costosa al Capellán.*`);
+        await interaction.reply(
+          `⏰ *Debes esperar ${remainingTime} segundos antes de hacer otra consulta costosa al Capellán.*`
+        );
         return;
       }
 
       // Iniciar seguimiento de tarea AI
-      this.aiTaskManager.startTask(context.userId, context.username, commandName, context.channelId);
+      this.aiTaskManager.startTask(
+        context.userId,
+        context.username,
+        commandName,
+        context.channelId
+      );
     }
 
     try {
       await command.execute(interaction, args, context);
-      
+
       // Completar tarea AI si era un comando AI
       if (this.aiCommands.has(commandName)) {
         this.aiTaskManager.completeTask(context.userId);
@@ -292,18 +343,22 @@ export class CommandManager {
       if (this.aiCommands.has(commandName)) {
         this.aiTaskManager.completeTask(context.userId);
       }
-      
+
       this.logger.error('Slash command execution failed', {
         error: error?.message || 'Unknown error',
         command: commandName,
         userId: context.userId,
-        args
+        args,
       });
 
       if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply('⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*');
+        await interaction.reply(
+          '⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*'
+        );
       } else {
-        await interaction.followUp('⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*');
+        await interaction.followUp(
+          '⚠️ *Los espíritus de la máquina han fallado. El error ha sido reportado a los Adeptus Mechanicus.*'
+        );
       }
     }
   }
@@ -313,16 +368,16 @@ export class CommandManager {
 
     // Mapear comandos directos a comandos de prefijo
     const commandMap: { [key: string]: string } = {
-      'help': 'help',
-      'herejia': 'herejia',
-      'sermon': 'sermon',
-      'buscar': 'buscar',
-      'fuentes': 'sources',
-      'bendicion': 'blessing',
-      'saludar': 'saludar',
-      'credo': 'credo',
-      'ranking': 'ranking',
-      'imperio': 'imperio'
+      help: 'help',
+      herejia: 'herejia',
+      sermon: 'sermon',
+      buscar: 'buscar',
+      fuentes: 'sources',
+      bendicion: 'blessing',
+      saludar: 'saludar',
+      credo: 'credo',
+      ranking: 'ranking',
+      imperio: 'imperio',
     };
 
     return commandMap[commandName] || 'help';
@@ -330,7 +385,7 @@ export class CommandManager {
 
   private extractArgsFromInteraction(interaction: CommandInteraction): string[] {
     const args: string[] = [];
-    
+
     // Extraer argumentos de las opciones
     const options = (interaction as any).options;
     if (options?.data) {
@@ -346,13 +401,13 @@ export class CommandManager {
 
   private createContextFromInteraction(interaction: CommandInteraction): CommandContext {
     const isInquisitor = this.inquisitorService.isInquisitor(interaction.user.id);
-    
+
     return {
       isInquisitor,
       userId: interaction.user.id,
       username: interaction.user.username,
       channelId: interaction.channelId || '',
-      guildId: interaction.guildId || undefined
+      guildId: interaction.guildId || undefined,
     };
   }
 }

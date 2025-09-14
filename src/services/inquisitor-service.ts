@@ -1,9 +1,8 @@
-
-import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { Logger } from '@/utils/logger';
-import { Inquisitor, InquisitorStore } from '@/types';
+import type { Inquisitor, InquisitorStore } from '@/types';
+import type { Logger } from '@/utils/logger';
 
 export class InquisitorService {
   private inquisitors: InquisitorStore = {};
@@ -29,9 +28,9 @@ export class InquisitorService {
       if (existsSync(this.filePath)) {
         const data = await readFile(this.filePath, 'utf8');
         this.inquisitors = JSON.parse(data);
-        this.logger.info('Inquisitors loaded', { 
+        this.logger.info('Inquisitors loaded', {
           count: Object.keys(this.inquisitors).length,
-          inquisitors: Object.values(this.inquisitors).map(i => i.username)
+          inquisitors: Object.values(this.inquisitors).map((i) => i.username),
         });
       } else {
         this.logger.info('No existing inquisitors file found, starting fresh');
@@ -46,8 +45,8 @@ export class InquisitorService {
   private async saveInquisitors() {
     try {
       await writeFile(this.filePath, JSON.stringify(this.inquisitors, null, 2));
-      this.logger.info('Inquisitors saved', { 
-        count: Object.keys(this.inquisitors).length 
+      this.logger.info('Inquisitors saved', {
+        count: Object.keys(this.inquisitors).length,
       });
     } catch (error: any) {
       this.logger.error('Failed to save inquisitors', { error: error.message });
@@ -72,8 +71,8 @@ export class InquisitorService {
   }
 
   async addInquisitor(
-    userId: string, 
-    username: string, 
+    userId: string,
+    username: string,
     grantedBy: string = 'SISTEMA',
     rank: Inquisitor['rank'] = 'Inquisidor'
   ): Promise<void> {
@@ -85,33 +84,33 @@ export class InquisitorService {
       username,
       grantedBy,
       grantedAt: new Date().toISOString(),
-      rank
+      rank,
     };
 
     await this.saveInquisitors();
-    
+
     this.logger.inquisitor('Nuevo Inquisidor nombrado', {
       userId,
       username,
       grantedBy,
-      rank
+      rank,
     });
   }
 
   async removeInquisitor(userId: string): Promise<Inquisitor | null> {
     const inquisitor = this.inquisitors[userId];
-    
+
     if (!inquisitor) {
       return null;
     }
 
     delete this.inquisitors[userId];
     await this.saveInquisitors();
-    
+
     this.logger.inquisitor('Inquisidor destituido', {
       userId,
       username: inquisitor.username,
-      rank: inquisitor.rank
+      rank: inquisitor.rank,
     });
 
     return inquisitor;
@@ -119,7 +118,7 @@ export class InquisitorService {
 
   async promoteToSupreme(userId: string, promotedBy: string): Promise<void> {
     const inquisitor = this.inquisitors[userId];
-    
+
     if (!inquisitor) {
       throw new Error('El usuario no es un Inquisidor');
     }
@@ -132,28 +131,30 @@ export class InquisitorService {
       ...inquisitor,
       rank: 'Inquisidor Supremo',
       grantedBy: promotedBy,
-      grantedAt: new Date().toISOString()
+      grantedAt: new Date().toISOString(),
     };
 
     await this.saveInquisitors();
-    
+
     this.logger.inquisitor('Inquisidor promovido a Supremo', {
       userId,
       username: inquisitor.username,
-      promotedBy
+      promotedBy,
     });
   }
 
   async createSupremeInquisitor(userId: string, username: string): Promise<void> {
     if (Object.keys(this.inquisitors).length > 0) {
-      throw new Error('Ya existen Inquisidores. No se puede crear un Inquisidor Supremo automáticamente.');
+      throw new Error(
+        'Ya existen Inquisidores. No se puede crear un Inquisidor Supremo automáticamente.'
+      );
     }
 
     await this.addInquisitor(userId, username, 'AUTOPROCLAMACIÓN', 'Inquisidor Supremo');
-    
+
     this.logger.inquisitor('Primer Inquisidor Supremo autoproclamado', {
       userId,
-      username
+      username,
     });
   }
 
@@ -170,29 +171,29 @@ export class InquisitorService {
 
   async updateInquisitorUsername(userId: string, newUsername: string): Promise<void> {
     const inquisitor = this.inquisitors[userId];
-    
+
     if (!inquisitor) {
       throw new Error('El usuario no es un Inquisidor');
     }
 
     this.inquisitors[userId] = {
       ...inquisitor,
-      username: newUsername
+      username: newUsername,
     };
 
     await this.saveInquisitors();
-    
+
     this.logger.info('Inquisitor username updated', {
       userId,
       oldUsername: inquisitor.username,
-      newUsername
+      newUsername,
     });
   }
 
   // Utility methods for Discord embed formatting
   formatInquisitorsList(): string {
     const entries = Object.entries(this.inquisitors);
-    
+
     if (entries.length === 0) {
       return '*No hay Inquisidores registrados.*';
     }
@@ -207,29 +208,31 @@ export class InquisitorService {
 
   formatInquisitorInfo(userId: string): string {
     const inquisitor = this.inquisitors[userId];
-    
+
     if (!inquisitor) {
       return 'Usuario no encontrado en los registros imperiales.';
     }
 
     const rankEmoji = inquisitor.rank === 'Inquisidor Supremo' ? '👑' : '👁️';
     const grantedDate = new Date(inquisitor.grantedAt).toLocaleString();
-    
-    return `${rankEmoji} **${inquisitor.username}**\n` +
-           `**Rango:** ${inquisitor.rank}\n` +
-           `**Nombrado por:** ${inquisitor.grantedBy}\n` +
-           `**Fecha:** ${grantedDate}`;
+
+    return (
+      `${rankEmoji} **${inquisitor.username}**\n` +
+      `**Rango:** ${inquisitor.rank}\n` +
+      `**Nombrado por:** ${inquisitor.grantedBy}\n` +
+      `**Fecha:** ${grantedDate}`
+    );
   }
 
   // Backup and restore functionality
   async createBackup(): Promise<string> {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = `./database/backups/inquisidores_${timestamp}.json`;
-    
+
     try {
       await mkdir('./database/backups', { recursive: true });
       await writeFile(backupPath, JSON.stringify(this.inquisitors, null, 2));
-      
+
       this.logger.info('Inquisitors backup created', { path: backupPath });
       return backupPath;
     } catch (error: any) {
@@ -242,25 +245,30 @@ export class InquisitorService {
     try {
       const data = await readFile(backupPath, 'utf8');
       const backupData: InquisitorStore = JSON.parse(data);
-      
+
       // Validate backup data structure
       for (const [userId, inquisitor] of Object.entries(backupData)) {
-        if (!inquisitor.username || !inquisitor.grantedBy || !inquisitor.grantedAt || !inquisitor.rank) {
+        if (
+          !inquisitor.username ||
+          !inquisitor.grantedBy ||
+          !inquisitor.grantedAt ||
+          !inquisitor.rank
+        ) {
           throw new Error(`Invalid backup data structure for user ${userId}`);
         }
       }
-      
+
       this.inquisitors = backupData;
       await this.saveInquisitors();
-      
-      this.logger.info('Inquisitors restored from backup', { 
+
+      this.logger.info('Inquisitors restored from backup', {
         path: backupPath,
-        count: Object.keys(this.inquisitors).length 
+        count: Object.keys(this.inquisitors).length,
       });
     } catch (error: any) {
-      this.logger.error('Failed to restore inquisitors from backup', { 
+      this.logger.error('Failed to restore inquisitors from backup', {
         error: error.message,
-        path: backupPath 
+        path: backupPath,
       });
       throw error;
     }

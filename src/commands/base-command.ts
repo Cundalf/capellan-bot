@@ -1,7 +1,6 @@
-
-import { Message, CommandInteraction } from 'discord.js';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import { type CommandInteraction, Message } from 'discord.js';
+import type { CommandContext } from '@/types';
+import type { Logger } from '@/utils/logger';
 
 export abstract class BaseCommand {
   protected logger: Logger;
@@ -15,7 +14,11 @@ export abstract class BaseCommand {
   abstract aliases: string[];
   abstract requiresInquisitor: boolean;
 
-  abstract execute(message: Message | CommandInteraction, args: string[], context: CommandContext): Promise<void>;
+  abstract execute(
+    message: Message | CommandInteraction,
+    args: string[],
+    context: CommandContext
+  ): Promise<void>;
 
   protected createContext(message: Message, isInquisitor: boolean): CommandContext {
     return {
@@ -23,17 +26,20 @@ export abstract class BaseCommand {
       userId: message.author.id,
       username: message.author.username,
       channelId: message.channel.id,
-      guildId: message.guild?.id
+      guildId: message.guild?.id,
     };
   }
 
-  protected createContextFromInteraction(interaction: CommandInteraction, isInquisitor: boolean): CommandContext {
+  protected createContextFromInteraction(
+    interaction: CommandInteraction,
+    isInquisitor: boolean
+  ): CommandContext {
     return {
       isInquisitor,
       userId: interaction.user.id,
       username: interaction.user.username,
       channelId: interaction.channelId,
-      guildId: interaction.guildId
+      guildId: interaction.guildId || undefined,
     };
   }
 
@@ -41,10 +47,14 @@ export abstract class BaseCommand {
     return mention.replace(/[<@!>]/g, '');
   }
 
-  protected async sendLoadingMessage(message: Message | CommandInteraction, text: string = '🔍 *Procesando...*') {
-    if ('reply' in message) {
+  protected async sendLoadingMessage(
+    message: Message | CommandInteraction,
+    text: string = '🔍 *Procesando...*'
+  ) {
+    if (message instanceof Message) {
       return await message.reply(text);
     } else {
+      // CommandInteraction
       if (message.deferred) {
         return await message.followUp(text);
       } else {
@@ -53,10 +63,14 @@ export abstract class BaseCommand {
     }
   }
 
-  protected async sendResponse(message: Message | CommandInteraction, content: string | { embeds?: any[] }) {
-    if ('reply' in message) {
+  protected async sendResponse(
+    message: Message | CommandInteraction,
+    content: string | { embeds?: any[] }
+  ) {
+    if (message instanceof Message) {
       return await message.reply(content);
     } else {
+      // CommandInteraction
       if (message.deferred) {
         return await message.followUp(content);
       } else {
@@ -72,7 +86,7 @@ export abstract class BaseCommand {
       args: args.length > 0 ? args : undefined,
       channelId: context.channelId,
       guildId: context.guildId,
-      isInquisitor: context.isInquisitor
+      isInquisitor: context.isInquisitor,
     });
   }
 }

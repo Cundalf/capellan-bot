@@ -1,8 +1,8 @@
-import { Client } from 'discord.js';
-import { Logger } from '@/utils/logger';
-import { BotConfig } from '@/types/index';
-import { SteamOffersService } from '../steam-offers-service';
-import { SermonService } from '../sermon-service';
+import type { Client } from 'discord.js';
+import type { BotConfig } from '@/types/index';
+import type { Logger } from '@/utils/logger';
+import type { SermonService } from '../sermon-service';
+import type { SteamOffersService } from '../steam-offers-service';
 
 export class NotificationHandler {
   constructor(
@@ -32,7 +32,7 @@ export class NotificationHandler {
     } catch (error: any) {
       this.logger.error('Error in Steam offers notification', {
         error: error?.message || 'Unknown error',
-        stack: error?.stack
+        stack: error?.stack,
       });
     }
   }
@@ -55,7 +55,7 @@ export class NotificationHandler {
     } catch (error: any) {
       this.logger.error('Error sending daily sermon', {
         error: error?.message || 'Unknown error',
-        stack: error?.stack
+        stack: error?.stack,
       });
     }
   }
@@ -89,7 +89,7 @@ export class NotificationHandler {
     this.logger.info('Steam offers notification sent successfully', {
       offersCount: newOffers.length,
       embedsCount: embeds.length,
-      channelId: this.config.steamOffersChannelId
+      channelId: this.config.steamOffersChannelId,
     });
   }
 
@@ -103,7 +103,7 @@ export class NotificationHandler {
     this.logger.info('Daily sermon sent successfully', {
       channelId: this.config.sermonChannelId,
       sermonLength: sermonResult.sermon.length,
-      topic: sermonResult.topic
+      topic: sermonResult.topic,
     });
   }
 
@@ -126,7 +126,7 @@ export class NotificationHandler {
       await channel.send({ embeds: chunk });
 
       if (i + maxEmbedsPerMessage < embeds.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
   }

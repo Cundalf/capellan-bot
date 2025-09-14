@@ -3,12 +3,11 @@ import { CapellanBot } from '@/services/capellan-bot';
 async function main() {
   console.log('🕊️ Iniciando Bot Capellán de Warhammer 40k...');
   console.log('👁️ En nombre del Emperador, comenzando servicios...');
-  
+
   try {
     const bot = new CapellanBot();
     await bot.start();
     // Success message is now handled in onReady() after full initialization
-    
   } catch (error) {
     console.error('❌ Error fatal iniciando el bot:', error);
     process.exit(1);

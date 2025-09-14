@@ -1,8 +1,8 @@
-import { Client, Events } from 'discord.js';
-import { Logger } from '@/utils/logger';
-import { CommandManager } from '../command-manager';
-import { HeresyDetector } from '@/events/heresy-detector';
-import { GamificationService } from '../gamification-service';
+import { type Client, Events } from 'discord.js';
+import type { HeresyDetector } from '@/events/heresy-detector';
+import type { Logger } from '@/utils/logger';
+import type { CommandManager } from '../command-manager';
+import type { GamificationService } from '../gamification-service';
 
 export class BotEventHandler {
   constructor(
@@ -35,7 +35,7 @@ export class BotEventHandler {
       try {
         await Promise.all([
           this.commandManager.handleCommand(message),
-          this.heresyDetector.checkMessage(message)
+          this.heresyDetector.checkMessage(message),
         ]);
 
         if (!message.content.startsWith('!')) {
@@ -67,7 +67,6 @@ export class BotEventHandler {
     this.logger.warn('Discord client warning', { warning });
   }
 
-
   private isValidMessage(message: any): boolean {
     return message && message.author && !message.author.bot;
   }
@@ -81,7 +80,7 @@ export class BotEventHandler {
       error: error?.message || 'Unknown error',
       messageId: message?.id,
       userId: message?.author?.id,
-      channelId: message?.channel?.id
+      channelId: message?.channel?.id,
     });
   }
 
@@ -90,7 +89,7 @@ export class BotEventHandler {
       error: error?.message || 'Unknown error',
       interactionId: interaction?.id,
       userId: interaction?.user?.id,
-      channelId: interaction?.channelId
+      channelId: interaction?.channelId,
     });
   }
 }

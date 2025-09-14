@@ -1,11 +1,10 @@
-
-import { Message, EmbedBuilder } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { GamificationService } from '@/services/gamification-service';
-import { InquisitorService } from '@/services/inquisitor-service';
-import { Logger } from '@/utils/logger';
-import { CommandContext } from '@/types';
+import { EmbedBuilder, type Message } from 'discord.js';
+import type { GamificationService } from '@/services/gamification-service';
+import type { InquisitorService } from '@/services/inquisitor-service';
+import type { CommandContext } from '@/types';
 import { DISCORD_COLORS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class PenitenceCommand extends BaseCommand {
   name = 'penitencia';
@@ -16,7 +15,11 @@ export class PenitenceCommand extends BaseCommand {
   private gamificationService: GamificationService;
   private inquisitorService: InquisitorService;
 
-  constructor(logger: Logger, gamificationService: GamificationService, inquisitorService: InquisitorService) {
+  constructor(
+    logger: Logger,
+    gamificationService: GamificationService,
+    inquisitorService: InquisitorService
+  ) {
     super(logger);
     this.gamificationService = gamificationService;
     this.inquisitorService = inquisitorService;
@@ -48,13 +51,17 @@ export class PenitenceCommand extends BaseCommand {
     await this.handleAssignPenitence(message, args, context);
   }
 
-  private async handleAssignPenitence(message: Message, args: string[], context: CommandContext): Promise<void> {
+  private async handleAssignPenitence(
+    message: Message,
+    args: string[],
+    context: CommandContext
+  ): Promise<void> {
     const userMention = args[0];
     const durationStr = args[1];
     const reason = args.slice(2).join(' ') || 'Comportamiento no imperial';
 
     const userId = this.extractUserIdFromMention(userMention);
-    
+
     if (userId === context.userId) {
       await message.reply('*No puedes asignarte penitencia a ti mismo, Inquisidor.*');
       return;
@@ -62,7 +69,9 @@ export class PenitenceCommand extends BaseCommand {
 
     // Prevent assigning penitence between Inquisitors
     if (this.inquisitorService.isInquisitor(userId)) {
-      await message.reply('*No puedes asignar penitencia a otro Inquisitor. Los Inquisidores solo responden ante el Emperador.*');
+      await message.reply(
+        '*No puedes asignar penitencia a otro Inquisitor. Los Inquisidores solo responden ante el Emperador.*'
+      );
       return;
     }
 
@@ -74,29 +83,51 @@ export class PenitenceCommand extends BaseCommand {
 
     try {
       const targetUser = await message.client.users.fetch(userId);
-      const targetProfile = await this.gamificationService.getOrCreateProfile(userId, targetUser.username);
-      
-      const penitenceId = await this.gamificationService.assignPenitence(userId, reason, context.username, duration);
-      
+      const targetProfile = await this.gamificationService.getOrCreateProfile(
+        userId,
+        targetUser.username
+      );
+
+      const penitenceId = await this.gamificationService.assignPenitence(
+        userId,
+        reason,
+        context.username,
+        duration
+      );
+
       if (!penitenceId) {
         await message.reply('*Error asignando penitencia.*');
         return;
       }
 
-      await this.gamificationService.addCorruptionPoints(userId, 20, `Penitencia asignada: ${reason}`);
+      await this.gamificationService.addCorruptionPoints(
+        userId,
+        20,
+        `Penitencia asignada: ${reason}`
+      );
 
       const activePenitencias = this.gamificationService.getActivePenitencias(userId);
-      
+
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.RED)
         .setTitle('⚡ PENITENCIA ASIGNADA')
-        .setDescription(`*${targetUser.username} ha sido sentenciado a penitencia por decreto del Inquisidor ${context.username}.*`)
+        .setDescription(
+          `*${targetUser.username} ha sido sentenciado a penitencia por decreto del Inquisidor ${context.username}.*`
+        )
         .addFields(
           { name: '⚖️ Razón', value: reason, inline: false },
           { name: '⏰ Duración', value: `${duration} horas`, inline: true },
           { name: '👁️ Asignado por', value: context.username, inline: true },
-          { name: '📅 Expira', value: new Date(Date.now() + duration * 60 * 60 * 1000).toLocaleString(), inline: true },
-          { name: '📋 Penitencias activas', value: activePenitencias.length.toString(), inline: true },
+          {
+            name: '📅 Expira',
+            value: new Date(Date.now() + duration * 60 * 60 * 1000).toLocaleString(),
+            inline: true,
+          },
+          {
+            name: '📋 Penitencias activas',
+            value: activePenitencias.length.toString(),
+            inline: true,
+          },
           { name: '🔖 ID', value: `\`${penitenceId}\``, inline: true }
         )
         .setTimestamp()
@@ -108,17 +139,22 @@ export class PenitenceCommand extends BaseCommand {
         target: userId,
         reason,
         duration,
-        assignedBy: context.userId
+        assignedBy: context.userId,
       });
-
     } catch (error) {
       await message.reply('*No puedo encontrar a ese usuario, Inquisidor.*');
     }
   }
 
-  private async handleRemovePenitence(message: Message, userOrId: string, context: CommandContext): Promise<void> {
+  private async handleRemovePenitence(
+    message: Message,
+    userOrId: string,
+    context: CommandContext
+  ): Promise<void> {
     if (!userOrId) {
-      await message.reply('*Especifica el usuario o ID: `!capellan penitencia remover @usuario` o `!capellan penitencia remover pen_123456`*');
+      await message.reply(
+        '*Especifica el usuario o ID: `!capellan penitencia remover @usuario` o `!capellan penitencia remover pen_123456`*'
+      );
       return;
     }
 
@@ -128,10 +164,10 @@ export class PenitenceCommand extends BaseCommand {
         // Find the user with this penitence ID
         const allProfiles = Object.values(this.gamificationService['profiles'] || {});
         let foundUser: any = null;
-        
+
         for (const profile of allProfiles) {
           const allPenitencias = this.gamificationService.getAllPenitencias(profile.userId);
-          if (allPenitencias.some(p => p.id === userOrId)) {
+          if (allPenitencias.some((p) => p.id === userOrId)) {
             foundUser = profile;
             break;
           }
@@ -142,8 +178,11 @@ export class PenitenceCommand extends BaseCommand {
           return;
         }
 
-        const success = await this.gamificationService.removePenitenceById(foundUser.userId, userOrId);
-        
+        const success = await this.gamificationService.removePenitenceById(
+          foundUser.userId,
+          userOrId
+        );
+
         if (!success) {
           await message.reply(`*Error removiendo penitencia con ID \`${userOrId}\`.*`);
           return;
@@ -152,7 +191,9 @@ export class PenitenceCommand extends BaseCommand {
         const embed = new EmbedBuilder()
           .setColor(DISCORD_COLORS.GREEN)
           .setTitle('✅ PENITENCIA REMOVIDA')
-          .setDescription(`*La penitencia \`${userOrId}\` de ${foundUser.username} ha sido levantada por gracia del Inquisidor ${context.username}.*`)
+          .setDescription(
+            `*La penitencia \`${userOrId}\` de ${foundUser.username} ha sido levantada por gracia del Inquisidor ${context.username}.*`
+          )
           .setTimestamp()
           .setFooter({ text: 'Perdón Imperial' });
 
@@ -164,7 +205,7 @@ export class PenitenceCommand extends BaseCommand {
       const userId = this.extractUserIdFromMention(userOrId);
       const targetUser = await message.client.users.fetch(userId);
       const activePenitencias = this.gamificationService.getActivePenitencias(userId);
-      
+
       if (activePenitencias.length === 0) {
         await message.reply(`*${targetUser.username} no tiene penitencias activas.*`);
         return;
@@ -172,7 +213,7 @@ export class PenitenceCommand extends BaseCommand {
 
       // Remove all active penitencias for the user
       const success = await this.gamificationService.removePenitence(userId);
-      
+
       if (!success) {
         await message.reply(`*Error removiendo penitencias de ${targetUser.username}.*`);
         return;
@@ -181,12 +222,13 @@ export class PenitenceCommand extends BaseCommand {
       const embed = new EmbedBuilder()
         .setColor(DISCORD_COLORS.GREEN)
         .setTitle('✅ PENITENCIAS REMOVIDAS')
-        .setDescription(`*Todas las penitencias activas (${activePenitencias.length}) de ${targetUser.username} han sido levantadas por gracia del Inquisidor ${context.username}.*`)
+        .setDescription(
+          `*Todas las penitencias activas (${activePenitencias.length}) de ${targetUser.username} han sido levantadas por gracia del Inquisidor ${context.username}.*`
+        )
         .setTimestamp()
         .setFooter({ text: 'Perdón Imperial' });
 
       await message.reply({ embeds: [embed] });
-
     } catch (error) {
       await message.reply('*No puedo encontrar a ese usuario, Inquisidor.*');
     }
@@ -195,7 +237,7 @@ export class PenitenceCommand extends BaseCommand {
   private async handleListPenitence(message: Message, context: CommandContext): Promise<void> {
     const allProfiles = Object.values(this.gamificationService['profiles'] || {});
     let totalActivePenitencias = 0;
-    let usersWithPenitencias: any[] = [];
+    const usersWithPenitencias: any[] = [];
 
     for (const profile of allProfiles) {
       const activePenitencias = this.gamificationService.getActivePenitencias(profile.userId);
@@ -203,38 +245,46 @@ export class PenitenceCommand extends BaseCommand {
         totalActivePenitencias += activePenitencias.length;
         usersWithPenitencias.push({
           profile,
-          penitencias: activePenitencias
+          penitencias: activePenitencias,
         });
       }
     }
 
     if (totalActivePenitencias === 0) {
-    const embed = new EmbedBuilder()
-      .setColor(DISCORD_COLORS.GREEN)
-      .setTitle('📋 Estado de Penitencias')
-      .setDescription('*No hay penitencias activas. El Imperio está en paz.*')
-      .setFooter({ text: 'Archivos Imperiales' });
+      const embed = new EmbedBuilder()
+        .setColor(DISCORD_COLORS.GREEN)
+        .setTitle('📋 Estado de Penitencias')
+        .setDescription('*No hay penitencias activas. El Imperio está en paz.*')
+        .setFooter({ text: 'Archivos Imperiales' });
 
       await message.reply({ embeds: [embed] });
       return;
     }
 
-    const penitenceList = usersWithPenitencias.map(({ profile, penitencias }) => {
-      const userInfo = penitencias.map((penitence: any) => {
-        const remaining = new Date(penitence.endsAt).getTime() - Date.now();
-        const hoursRemaining = Math.max(0, Math.ceil(remaining / (60 * 60 * 1000)));
-        
-        return `  • ${penitence.reason} (${hoursRemaining}h - ID: \`${penitence.id.slice(-6)}\`)`;
-      }).join('\n');
-      
-      return `**${profile.username}** (${penitencias.length} activas)\n${userInfo}`;
-    }).join('\n\n');
+    const penitenceList = usersWithPenitencias
+      .map(({ profile, penitencias }) => {
+        const userInfo = penitencias
+          .map((penitence: any) => {
+            const remaining = new Date(penitence.endsAt).getTime() - Date.now();
+            const hoursRemaining = Math.max(0, Math.ceil(remaining / (60 * 60 * 1000)));
+
+            return `  • ${penitence.reason} (${hoursRemaining}h - ID: \`${penitence.id.slice(-6)}\`)`;
+          })
+          .join('\n');
+
+        return `**${profile.username}** (${penitencias.length} activas)\n${userInfo}`;
+      })
+      .join('\n\n');
 
     const embed = new EmbedBuilder()
       .setColor(DISCORD_COLORS.ORANGE)
       .setTitle('📋 Penitencias Activas')
       .setDescription(penitenceList)
-      .addFields({ name: 'Total penitencias', value: totalActivePenitencias.toString(), inline: true })
+      .addFields({
+        name: 'Total penitencias',
+        value: totalActivePenitencias.toString(),
+        inline: true,
+      })
       .setTimestamp()
       .setFooter({ text: 'Justicia Imperial' });
 
@@ -247,12 +297,32 @@ export class PenitenceCommand extends BaseCommand {
       .setTitle('⚖️ Comando Penitencia')
       .setDescription('*Sistema de penitencias imperiales para Inquisidores:*')
       .addFields(
-        { name: '⚡ Asignar', value: '`!capellan penitencia @usuario [horas] [razón]`', inline: false },
-        { name: '✅ Remover por usuario', value: '`!capellan penitencia remover @usuario`', inline: false },
-        { name: '🆔 Remover por ID', value: '`!capellan penitencia remover pen_123456`', inline: false },
+        {
+          name: '⚡ Asignar',
+          value: '`!capellan penitencia @usuario [horas] [razón]`',
+          inline: false,
+        },
+        {
+          name: '✅ Remover por usuario',
+          value: '`!capellan penitencia remover @usuario`',
+          inline: false,
+        },
+        {
+          name: '🆔 Remover por ID',
+          value: '`!capellan penitencia remover pen_123456`',
+          inline: false,
+        },
         { name: '📋 Lista', value: '`!capellan penitencia lista`', inline: false },
-        { name: '📖 Ejemplo', value: '`!capellan penitencia @hereje 24 Blasfemia contra el Emperador`', inline: false },
-        { name: '📝 Nota', value: '*Los usuarios pueden tener múltiples penitencias activas simultáneamente*', inline: false }
+        {
+          name: '📖 Ejemplo',
+          value: '`!capellan penitencia @hereje 24 Blasfemia contra el Emperador`',
+          inline: false,
+        },
+        {
+          name: '📝 Nota',
+          value: '*Los usuarios pueden tener múltiples penitencias activas simultáneamente*',
+          inline: false,
+        }
       )
       .setFooter({ text: 'Solo Inquisidores - El Emperador Juzga' });
 

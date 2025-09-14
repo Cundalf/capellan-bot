@@ -10,13 +10,13 @@ export function loadConfig(): BotConfig {
     steamOffersChannelId: process.env.STEAM_OFFERS_CHANNEL_ID,
     steamOffersCheckInterval: parseInt(process.env.STEAM_OFFERS_CHECK_INTERVAL || '3'), // hours
     minDiscountPercent: parseInt(process.env.MIN_DISCOUNT_PERCENT || '10'),
-    sermonChannelId: process.env.SERMON_CHANNEL_ID
+    sermonChannelId: process.env.SERMON_CHANNEL_ID,
   };
 }
 
 export function validateEnvironment(): void {
   const required = ['DISCORD_TOKEN', 'OPENAI_API_KEY'];
-  
+
   for (const key of required) {
     if (!process.env[key]) {
       throw new Error(`Missing required environment variable: ${key}`);

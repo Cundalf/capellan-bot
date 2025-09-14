@@ -1,10 +1,9 @@
-
-import { Message, EmbedBuilder } from 'discord.js';
-import { BaseCommand } from './base-command';
-import { GamificationService } from '@/services/gamification-service';
-import { Logger } from '@/utils/logger';
-import { CommandContext, UserRank } from '@/types';
+import { EmbedBuilder, type Message } from 'discord.js';
+import type { GamificationService } from '@/services/gamification-service';
+import type { CommandContext, UserRank } from '@/types';
 import { DISCORD_COLORS, WARHAMMER_CONSTANTS } from '@/utils/constants';
+import type { Logger } from '@/utils/logger';
+import { BaseCommand } from './base-command';
 
 export class BlessingCommand extends BaseCommand {
   name = 'bendicion';
@@ -30,30 +29,44 @@ export class BlessingCommand extends BaseCommand {
 
     if (now - lastBlessing < cooldownMs) {
       const remainingTime = Math.ceil((cooldownMs - (now - lastBlessing)) / 60000);
-      await message.reply(`*Debes esperar ${remainingTime} minutos antes de bendecir nuevamente, hermano.*`);
+      await message.reply(
+        `*Debes esperar ${remainingTime} minutos antes de bendecir nuevamente, hermano.*`
+      );
       return;
     }
 
     const userMention = args[0];
-    
+
     if (!userMention) {
       await this.showSelfBlessing(message, context);
       return;
     }
 
     const userId = this.extractUserIdFromMention(userMention);
-    
+
     if (userId === context.userId) {
-      await message.reply('*No puedes bendecirte a ti mismo, hermano. La humildad es una virtud imperial.*');
+      await message.reply(
+        '*No puedes bendecirte a ti mismo, hermano. La humildad es una virtud imperial.*'
+      );
       return;
     }
 
     try {
       const targetUser = await message.client.users.fetch(userId);
-      const targetProfile = await this.gamificationService.getOrCreateProfile(userId, targetUser.username);
-      const blesserProfile = await this.gamificationService.getOrCreateProfile(context.userId, context.username);
+      const targetProfile = await this.gamificationService.getOrCreateProfile(
+        userId,
+        targetUser.username
+      );
+      const blesserProfile = await this.gamificationService.getOrCreateProfile(
+        context.userId,
+        context.username
+      );
 
-      await this.gamificationService.addPurityPoints(userId, 15, `Bendición de ${context.username}`);
+      await this.gamificationService.addPurityPoints(
+        userId,
+        15,
+        `Bendición de ${context.username}`
+      );
       await this.gamificationService.addPurityPoints(context.userId, 5, 'Otorgar bendición');
 
       this.lastBlessings.set(context.userId, now);
@@ -63,7 +76,7 @@ export class BlessingCommand extends BaseCommand {
         `✨ *${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.BLESSING}, ${targetUser.username}. Que Su sabiduría ilumine tu camino.*`,
         `👑 *Por decreto del Emperador, ${targetUser.username} recibe Su bendición. Que Su luz dorada te acompañe.*`,
         `⚡ *Los vientos del Warp no pueden tocar a ${targetUser.username}, pues el Emperador vela por su alma.*`,
-        `🔥 *Que la llama de la fe arda eterna en el corazón de ${targetUser.username}. Ave Imperator!*`
+        `🔥 *Que la llama de la fe arda eterna en el corazón de ${targetUser.username}. Ave Imperator!*`,
       ];
 
       const randomBlessing = blessings[Math.floor(Math.random() * blessings.length)];
@@ -75,7 +88,11 @@ export class BlessingCommand extends BaseCommand {
         .addFields(
           { name: '🙏 Bendecido por', value: context.username, inline: true },
           { name: '✨ Puntos de Pureza', value: '+15 puntos', inline: true },
-          { name: '👁️ Nuevo Rango', value: this.getRankEmoji(targetProfile.rank) + ' ' + targetProfile.rank, inline: true }
+          {
+            name: '👁️ Nuevo Rango',
+            value: this.getRankEmoji(targetProfile.rank) + ' ' + targetProfile.rank,
+            inline: true,
+          }
         )
         .setTimestamp()
         .setFooter({ text: WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.PROTECTION });
@@ -85,22 +102,24 @@ export class BlessingCommand extends BaseCommand {
       this.logger.info('Blessing given', {
         blesser: context.userId,
         target: userId,
-        targetRank: targetProfile.rank
+        targetRank: targetProfile.rank,
       });
-
     } catch (error) {
       await message.reply('*No puedo encontrar a ese usuario, hermano.*');
     }
   }
 
   private async showSelfBlessing(message: Message, context: CommandContext): Promise<void> {
-    const profile = await this.gamificationService.getOrCreateProfile(context.userId, context.username);
-    
+    const profile = await this.gamificationService.getOrCreateProfile(
+      context.userId,
+      context.username
+    );
+
     const personalBlessings = [
       `🕊️ *${WARHAMMER_CONSTANTS.CHAPLAIN_PHRASES.PROTECTION}, ${context.username}. Tu fe es inquebrantable.*`,
       `✨ *El Emperador reconoce tu devoción, ${context.username}. Continúa en Su sagrado servicio.*`,
       `👑 *Que la luz del Trono Dorado ilumine tu alma, fiel ${context.username}.*`,
-      `⚔️ *Tu valor no pasa desapercibido ante el Emperador, ${context.username}. Mantente firme.*`
+      `⚔️ *Tu valor no pasa desapercibido ante el Emperador, ${context.username}. Mantente firme.*`,
     ];
 
     const randomBlessing = personalBlessings[Math.floor(Math.random() * personalBlessings.length)];
@@ -110,7 +129,11 @@ export class BlessingCommand extends BaseCommand {
       .setTitle('🕊️ Bendición Personal')
       .setDescription(randomBlessing)
       .addFields(
-        { name: '📊 Tu Rango', value: this.getRankEmoji(profile.rank) + ' ' + profile.rank, inline: true },
+        {
+          name: '📊 Tu Rango',
+          value: this.getRankEmoji(profile.rank) + ' ' + profile.rank,
+          inline: true,
+        },
         { name: '✨ Pureza', value: profile.purityPoints.toString(), inline: true },
         { name: '🏆 Logros', value: profile.achievements.length.toString(), inline: true }
       )
@@ -122,15 +145,15 @@ export class BlessingCommand extends BaseCommand {
 
   private getRankEmoji(rank: UserRank): string {
     const rankEmojis: Record<UserRank, string> = {
-      'Herético': '💀',
-      'Sospechoso': '❓',
-      'Ciudadano': '👤',
-      'Fiel': '🙏',
-      'Devoto': '✨',
-      'Piadoso': '👼',
-      'Santo': '😇',
-      'Mártir': '⚡',
-      'Servo del Emperador': '👑'
+      Herético: '💀',
+      Sospechoso: '❓',
+      Ciudadano: '👤',
+      Fiel: '🙏',
+      Devoto: '✨',
+      Piadoso: '👼',
+      Santo: '😇',
+      Mártir: '⚡',
+      'Servo del Emperador': '👑',
     };
     return rankEmojis[rank] || '👤';
   }

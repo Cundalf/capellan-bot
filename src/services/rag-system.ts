@@ -1,9 +1,8 @@
-
 import { OpenAI } from 'openai';
-import { VectorStore } from './vector-store';
-import { Logger } from '@/utils/logger';
+import type { CommandType, DocumentMetadata, RAGResponse, RAGStats, VectorDocument } from '@/types';
 import { WARHAMMER_CONSTANTS } from '@/utils/constants';
-import { DocumentMetadata, VectorDocument, RAGResponse, RAGStats, CommandType } from '@/types';
+import type { Logger } from '@/utils/logger';
+import { VectorStore } from './vector-store';
 
 // Define collections for different command types
 const RAG_COLLECTIONS = {
@@ -11,7 +10,7 @@ const RAG_COLLECTIONS = {
   daily_sermon: ['sermons'],
   knowledge_search: ['general-lore', 'user'], // Include user documents for general knowledge
   questions: ['general-lore', 'heresy-analysis', 'sermons', 'user'], // All collections for questions
-  general: ['user'] // Default for backwards compatibility
+  general: ['user'], // Default for backwards compatibility
 } as const;
 
 export class RAGSystem {
@@ -22,7 +21,7 @@ export class RAGSystem {
   constructor(logger: Logger) {
     this.logger = logger;
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY!
+      apiKey: process.env.OPENAI_API_KEY!,
     });
     this.vectorStore = new VectorStore(logger);
   }
@@ -31,7 +30,7 @@ export class RAGSystem {
     try {
       const response = await this.openai.embeddings.create({
         model: WARHAMMER_CONSTANTS.RAG_CONFIG.EMBEDDING_MODEL,
-        input: text.substring(0, 8000) // Limit text length for embedding
+        input: text.substring(0, 8000), // Limit text length for embedding
       });
 
       return response.data[0].embedding;
@@ -41,7 +40,10 @@ export class RAGSystem {
     }
   }
 
-  async generateCapellanResponse(query: string, type: CommandType = 'general'): Promise<RAGResponse> {
+  async generateCapellanResponse(
+    query: string,
+    type: CommandType = 'general'
+  ): Promise<RAGResponse> {
     try {
       this.logger.debug('Generating RAG response', { query: query.substring(0, 100), type });
 
@@ -49,8 +51,9 @@ export class RAGSystem {
       const queryEmbedding = await this.generateEmbedding(query);
 
       // Get collections for this command type
-      const collections = RAG_COLLECTIONS[type] || RAG_COLLECTIONS.general;
-      
+      const collectionsReadonly = RAG_COLLECTIONS[type] || RAG_COLLECTIONS.general;
+      const collections = [...collectionsReadonly]; // Convert readonly array to mutable array
+
       // Search for similar documents in the appropriate collections
       const searchResults = await this.vectorStore.searchSimilar(
         queryEmbedding,
@@ -61,7 +64,7 @@ export class RAGSystem {
 
       // Build context from search results
       const context = this.buildContext(searchResults, type);
-      
+
       // Generate response using OpenAI
       const systemPrompt = this.getSystemPrompt(type);
       const userPrompt = this.buildUserPrompt(query, context, type);
@@ -70,37 +73,38 @@ export class RAGSystem {
         model: WARHAMMER_CONSTANTS.RAG_CONFIG.CHAT_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
+          { role: 'user', content: userPrompt },
         ],
         temperature: 0.7,
-        max_completion_tokens: 300
+        max_completion_tokens: 300,
       });
 
-      const response = completion.choices[0].message.content || 'Los espíritus de la máquina me fallan, hermano.';
+      const response =
+        completion.choices[0].message.content || 'Los espíritus de la máquina me fallan, hermano.';
       const tokensUsed = completion.usage?.total_tokens || 0;
 
-      this.logger.info('RAG response generated', { 
-        type, 
-        tokensUsed, 
+      this.logger.info('RAG response generated', {
+        type,
+        tokensUsed,
         contextSources: searchResults.length,
-        queryLength: query.length 
+        queryLength: query.length,
       });
 
       return {
         response,
         sources: searchResults,
-        tokensUsed
+        tokensUsed,
       };
     } catch (error: any) {
-      this.logger.error('Failed to generate RAG response', { 
-        error: error.message, 
-        query: query.substring(0, 100) 
+      this.logger.error('Failed to generate RAG response', {
+        error: error.message,
+        query: query.substring(0, 100),
       });
-      
+
       return {
         response: this.getFallbackResponse(type),
         sources: [],
-        tokensUsed: 0
+        tokensUsed: 0,
       };
     }
   }
@@ -108,13 +112,16 @@ export class RAGSystem {
   private buildContext(searchResults: any[], type: CommandType): string {
     if (searchResults.length === 0) return '';
 
-    const contextChunks = searchResults.map(result => 
-      `Fuente: ${result.source}
+    const contextChunks = searchResults.map(
+      (result) =>
+        `Fuente: ${result.source}
 Contenido: ${result.document.content}
 Relevancia: ${Math.round(result.similarity * 100)}%`
     );
 
-    return contextChunks.join('\n\n---\n\n').substring(0, WARHAMMER_CONSTANTS.RAG_CONFIG.MAX_CONTEXT_LENGTH);
+    return contextChunks
+      .join('\n\n---\n\n')
+      .substring(0, WARHAMMER_CONSTANTS.RAG_CONFIG.MAX_CONTEXT_LENGTH);
   }
 
   private getSystemPrompt(type: CommandType): string {
@@ -153,14 +160,18 @@ GENERA SERMÓN MILITAR conciso que fortalezca fe imperial. Incluye fervor de bat
 
 RESPONDE preguntas sobre lore W40K de forma directa y concisa. Usa contexto disponible y conocimiento del 40k. Máximo 1 párrafo informativo.`,
 
-      general: basePrompt
+      questions: `${basePrompt}
+
+RESPONDE preguntas generales sobre Warhammer 40K usando tu conocimiento y el contexto disponible. Mantén el tono militar e imperial. Máximo 1 párrafo informativo.`,
+
+      general: basePrompt,
     };
 
     return typeSpecificPrompts[type] || typeSpecificPrompts.general;
   }
 
   private buildUserPrompt(query: string, context: string, type: CommandType): string {
-    const contextSection = context 
+    const contextSection = context
       ? `
 
 CONTEXTO DE LOS ARCHIVOS SAGRADOS:
@@ -177,7 +188,8 @@ TEXTO A ANALIZAR: "${query}"
 Clasifica la herejía basándote ÚNICAMENTE en estas palabras exactas. No hagas referencia a otros textos o ejemplos.`,
       daily_sermon: `GENERA UN SERMÓN DIARIO SOBRE: ${query}`,
       knowledge_search: `RESPONDE LA SIGUIENTE PREGUNTA SOBRE EL LORE: ${query}`,
-      general: `RESPONDE COMO UN CAPELLÁN: ${query}`
+      questions: `RESPONDE LA SIGUIENTE PREGUNTA: ${query}`,
+      general: `RESPONDE COMO UN CAPELLÁN: ${query}`,
     };
 
     return `${contextSection}${typeMessages[type] || typeMessages.general}`;
@@ -185,16 +197,27 @@ Clasifica la herejía basándote ÚNICAMENTE en estas palabras exactas. No hagas
 
   private getFallbackResponse(type: CommandType): string {
     const fallbacks = {
-      heresy_analysis: '⚡ Los espíritus de la máquina me fallan al analizar este mensaje. Sin embargo, mantened la vigilancia, hermanos. **SOSPECHOSO** por precaución.',
-      daily_sermon: '🕊️ El Emperador protege a quienes marchan en Su nombre. Que Su luz dorada guíe vuestros pasos en este día, hermanos. **Ave Imperator!**',
-      knowledge_search: '📚 Los archivos sagrados no responden en este momento. Consultad al Adeptus Mechanicus o intentad más tarde.',
-      general: '🔧 Los espíritus de la máquina requieren apaciguamiento. El Omnissiah nos ha fallado temporalmente.'
+      heresy_analysis:
+        '⚡ Los espíritus de la máquina me fallan al analizar este mensaje. Sin embargo, mantened la vigilancia, hermanos. **SOSPECHOSO** por precaución.',
+      daily_sermon:
+        '🕊️ El Emperador protege a quienes marchan en Su nombre. Que Su luz dorada guíe vuestros pasos en este día, hermanos. **Ave Imperator!**',
+      knowledge_search:
+        '📚 Los archivos sagrados no responden en este momento. Consultad al Adeptus Mechanicus o intentad más tarde.',
+      questions:
+        '🤔 Los cogitadores fallan en procesar vuestra consulta. El Emperador proveerá respuestas en Su momento, hermanos.',
+      general:
+        '🔧 Los espíritus de la máquina requieren apaciguamiento. El Omnissiah nos ha fallado temporalmente.',
     };
 
     return fallbacks[type] || fallbacks.general;
   }
 
-  async addDocument(content: string, metadata: DocumentMetadata, collection: string = 'user', isBaseDocument: boolean = false): Promise<void> {
+  async addDocument(
+    content: string,
+    metadata: DocumentMetadata,
+    collection: string = 'user',
+    isBaseDocument: boolean = false
+  ): Promise<void> {
     try {
       // Split content into chunks
       const chunks = this.chunkText(content);
@@ -203,28 +226,28 @@ Clasifica la herejía basándote ÚNICAMENTE en estas palabras exactas. No hagas
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
         const embedding = await this.generateEmbedding(chunk);
-        
+
         documents.push({
           id: `${metadata.source}_chunk_${i}`,
           content: chunk,
           embedding,
           metadata: { ...metadata, processed: true },
-          chunkIndex: i
+          chunkIndex: i,
         });
       }
 
       await this.vectorStore.addDocuments(documents, collection, isBaseDocument);
-      this.logger.info('Document added to RAG system', { 
-        source: metadata.source, 
+      this.logger.info('Document added to RAG system', {
+        source: metadata.source,
         chunks: chunks.length,
         type: metadata.type,
         collection,
-        isBaseDocument
+        isBaseDocument,
       });
     } catch (error: any) {
-      this.logger.error('Failed to add document to RAG system', { 
-        error: error.message, 
-        source: metadata.source 
+      this.logger.error('Failed to add document to RAG system', {
+        error: error.message,
+        source: metadata.source,
       });
       throw error;
     }
@@ -233,14 +256,14 @@ Clasifica la herejía basándote ÚNICAMENTE en estas palabras exactas. No hagas
   private chunkText(text: string): string[] {
     const { CHUNK_SIZE, CHUNK_OVERLAP } = WARHAMMER_CONSTANTS.RAG_CONFIG;
     const chunks: string[] = [];
-    
+
     // Simple sentence-aware chunking
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
     let currentChunk = '';
-    
+
     for (const sentence of sentences) {
       const testChunk = currentChunk + sentence + '.';
-      
+
       if (testChunk.length <= CHUNK_SIZE) {
         currentChunk = testChunk;
       } else {
@@ -256,11 +279,11 @@ Clasifica la herejía basándote ÚNICAMENTE en estas palabras exactas. No hagas
         }
       }
     }
-    
+
     if (currentChunk) {
       chunks.push(currentChunk.trim());
     }
-    
+
     return chunks;
   }
 

@@ -1,4 +1,4 @@
-import { Logger } from '@/utils/logger';
+import type { Logger } from '@/utils/logger';
 
 export interface AITask {
   userId: string;
@@ -43,7 +43,7 @@ export class AITaskManager {
       username,
       command,
       startTime: Date.now(),
-      channelId
+      channelId,
     };
 
     this.activeTasks.set(userId, task);
@@ -51,7 +51,7 @@ export class AITaskManager {
       userId,
       username,
       command,
-      totalActiveTasks: this.activeTasks.size
+      totalActiveTasks: this.activeTasks.size,
     });
 
     return true;
@@ -69,7 +69,7 @@ export class AITaskManager {
         userId,
         command: task.command,
         duration,
-        totalActiveTasks: this.activeTasks.size
+        totalActiveTasks: this.activeTasks.size,
       });
     }
   }
@@ -98,7 +98,8 @@ export class AITaskManager {
   /**
    * Clean up tasks older than specified time (in ms)
    */
-  cleanupStuckTasks(maxAge: number = 300000): number { // 5 minutes default
+  cleanupStuckTasks(maxAge: number = 300000): number {
+    // 5 minutes default
     const now = Date.now();
     let cleaned = 0;
 
@@ -109,7 +110,7 @@ export class AITaskManager {
         this.logger.warn('Cleaned up stuck AI task', {
           userId,
           command: task.command,
-          age: now - task.startTime
+          age: now - task.startTime,
         });
       }
     }

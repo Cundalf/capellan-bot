@@ -1,7 +1,7 @@
-import type { BotConfig, LogEntry } from '@/types';
-import { writeFile, appendFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
+import { appendFile, mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
+import type { BotConfig, LogEntry } from '@/types';
 
 class Logger {
   private config: BotConfig['logLevel'];
@@ -38,9 +38,9 @@ class Logger {
     // Console output
     const colorMap = {
       debug: '\x1b[36m', // cyan
-      info: '\x1b[32m',  // green
-      warn: '\x1b[33m',  // yellow
-      error: '\x1b[31m'  // red
+      info: '\x1b[32m', // green
+      warn: '\x1b[33m', // yellow
+      error: '\x1b[31m', // red
     };
     console.log(`${colorMap[entry.level]}${logLine}\x1b[0m${contextStr}`);
 
@@ -57,7 +57,7 @@ class Logger {
       timestamp: new Date().toISOString(),
       level: 'debug',
       message,
-      context
+      context,
     });
   }
 
@@ -66,7 +66,7 @@ class Logger {
       timestamp: new Date().toISOString(),
       level: 'info',
       message,
-      context
+      context,
     });
   }
 
@@ -75,7 +75,7 @@ class Logger {
       timestamp: new Date().toISOString(),
       level: 'warn',
       message,
-      context
+      context,
     });
   }
 
@@ -84,7 +84,7 @@ class Logger {
       timestamp: new Date().toISOString(),
       level: 'error',
       message,
-      context
+      context,
     });
   }
 
