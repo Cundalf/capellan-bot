@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  capellan-bot:
+    build: .
+    container_name: capellan-bot
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    volumes:
+      # Persist database and logs
+      - ./database:/app/database
+      - ./logs:/app/logs
+      - ./exports:/app/exports
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "bun", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
