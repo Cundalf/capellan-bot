@@ -6,7 +6,7 @@
   "main": "dist/main.js",
   "scripts": {
     "dev": "bun run --watch src/main.ts",
-    "build": "bun build src/main.ts --outdir dist --minify --sourcemap --target=node",
+    "build": "bun build src/main.ts --outdir dist --sourcemap --target=node",
     "start": "bun dist/main.js",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
