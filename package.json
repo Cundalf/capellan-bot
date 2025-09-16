@@ -10,7 +10,7 @@
     "start": "bun dist/main.js",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "setup": "mkdir -p database/wh40k-documents database/backups logs exports && echo '{}' > database/inquisidores.json || true",
+    "setup": "mkdir -p database/wh40k-documents database/backups logs exports && [ ! -f database/inquisidores.json ] && echo '{}' > database/inquisidores.json || true",
     "postinstall": "npm run setup",
     "backup": "bun run scripts/backup.ts",
     "maintenance": "bun run scripts/maintenance.ts",

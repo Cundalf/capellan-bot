@@ -18,7 +18,7 @@ RUN bun run build
 
 # Create necessary directories and set permissions
 RUN mkdir -p database/wh40k-documents database/backups logs exports && \
-    echo '{}' > database/inquisidores.json && \
+    [ ! -f database/inquisidores.json ] && echo '{}' > database/inquisidores.json || true && \
     chown -R bun:bun /app
 
 # Switch to non-root user
