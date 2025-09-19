@@ -26,6 +26,8 @@ export class CronJobHandler {
     cron.schedule('40 19 * * *', async () => {
       this.logger.info('Daily sermon cron triggered at Imperial Hour');
       await this.onDailySermon();
+    }, {
+      timezone: 'America/Argentina/Buenos_Aires'
     });
   }
 
@@ -33,6 +35,8 @@ export class CronJobHandler {
     cron.schedule('0 3 * * *', async () => {
       this.logger.info('Running database maintenance');
       await this.gamificationService.cleanupExpiredPenitence();
+    }, {
+      timezone: 'America/Argentina/Buenos_Aires'
     });
   }
 
@@ -46,6 +50,8 @@ export class CronJobHandler {
           error: error?.message || 'Unknown error',
         });
       }
+    }, {
+      timezone: 'America/Argentina/Buenos_Aires'
     });
   }
 
@@ -56,6 +62,8 @@ export class CronJobHandler {
     cron.schedule(cronExpression, async () => {
       this.logger.info('Steam offers check triggered');
       await this.onSteamOffersCheck();
+    }, {
+      timezone: 'America/Argentina/Buenos_Aires'
     });
   }
 
